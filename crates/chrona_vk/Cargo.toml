@@ -1,0 +1,9 @@
+[package]
+name = "chrona_vk"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+vulkano = "0.35.2"
+
+chrona_utils = { path = "../chrona_utils" }

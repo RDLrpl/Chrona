@@ -1,0 +1,10 @@
+[package]
+name = "ChronaEngine"
+version = "1.0.0"
+edition = "2024"
+
+[dependencies]
+winit = "0.30.13"
+
+chrona_app = { path = "crates/chrona_app" }
+chrona_utils = { path = "crates/chrona_utils" }

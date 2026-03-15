@@ -3,11 +3,6 @@ use std::{error::Error, sync::Arc};
 use vulkano::{device::{Device, DeviceCreateInfo, DeviceExtensions, Queue, QueueCreateInfo, QueueFlags, physical::{PhysicalDevice, PhysicalDeviceType}}, instance::Instance};
 use chrona_utils::binding::{OptionExt, ResultExt};
 
-pub const DEVICE_EXTENSIONS: DeviceExtensions = DeviceExtensions {
-    khr_swapchain: true,
-    ..DeviceExtensions::empty()
-};
-
 
 #[derive(Clone)]
 pub struct GpuDevices {
@@ -20,9 +15,9 @@ pub struct GpuDevices {
 
 // GPU init:
 impl GpuDevices {
-    pub fn init(appinstance: Arc<Instance>) -> Self {
+    pub fn init(appinstance: Arc<Instance>, device_exstensions: DeviceExtensions) -> Self {
         // Phys Device
-        let (physical_device, device_name) = best_gpu(appinstance).expect_me("[ERROR] GPU INIT>").unwrap();
+        let (physical_device, device_name) = best_gpu(appinstance, device_exstensions).expect_me("[ERROR] GPU INIT>").unwrap();
 
         // choosing GPU GRAPHICS QUEUE (req. logic device)
         let queue_family_index = physical_device
@@ -41,7 +36,7 @@ impl GpuDevices {
                     queue_family_index,
                     ..Default::default()
                 }],
-                enabled_extensions: DEVICE_EXTENSIONS,
+                enabled_extensions: device_exstensions,
                 ..Default::default()
             },
         )
@@ -61,7 +56,7 @@ impl GpuDevices {
 }
 
 // GPU selection:
-fn best_gpu(vk_instance: Arc<Instance>) -> Result<Option<(Arc<PhysicalDevice>, String)>, Box<dyn Error>> {
+fn best_gpu(vk_instance: Arc<Instance>, device_exstensions: DeviceExtensions) -> Result<Option<(Arc<PhysicalDevice>, String)>, Box<dyn Error>> {
     // best gpu choosing version 0.1.0
     let devices = vk_instance.enumerate_physical_devices()?;
     
@@ -69,7 +64,7 @@ fn best_gpu(vk_instance: Arc<Instance>) -> Result<Option<(Arc<PhysicalDevice>, S
 
     for (_, device) in devices
         .enumerate()
-        .filter(|&(_, ref device)| device.supported_extensions().contains(&DEVICE_EXTENSIONS))
+        .filter(|&(_, ref device)| device.supported_extensions().contains(&device_exstensions))
     {
 
         let props = device.properties();

@@ -7,3 +7,5 @@ edition = "2024"
 vulkano = "0.35.2"
 
 chrona_utils = { path = "../chrona_utils" }
+vulkano-shaders = "0.35.0"
+winit = "0.30.13"

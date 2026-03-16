@@ -1,1 +1,1 @@
-pub mod testobject;
+pub mod cube;

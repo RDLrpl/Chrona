@@ -12,6 +12,3 @@ vulkano = "0.35.2"
 
 [profile.dev]
 opt-level = 1
-
-[target.x86_64-pc-windows-msvc]
-rustflags = ["-C", "link-arg=/STACK:67108864"]

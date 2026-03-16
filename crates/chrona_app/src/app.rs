@@ -1,9 +1,9 @@
 use std::sync::Arc;
 
 use chrona_utils::binding::{OptionExt, ResultExt};
-use chrona_vk::{engine::layout::testobject::cube, vkinit::{devices::GpuDevices, pipeline::{Executor, PushConstants}, render::Render}};
-use glam::Mat4;
-use vulkano::{Version, VulkanLibrary, command_buffer::{AutoCommandBufferBuilder, CommandBufferUsage, RenderPassBeginInfo, SubpassBeginInfo, SubpassContents}, device::DeviceExtensions, instance::{Instance, InstanceCreateFlags, InstanceCreateInfo}, pipeline::{Pipeline, graphics::viewport::Viewport}, swapchain::{self, Surface, SwapchainPresentInfo}, sync::GpuFuture};
+use chrona_vk::{engine::{camera::CameraUBO, layout::cube::cube}, vkinit::{devices::GpuDevices, framecontext::{FrameContext}, pipeline::Executor, render::Render}};
+use glam::{Mat4, Vec3};
+use vulkano::{Version, VulkanLibrary, command_buffer::{AutoCommandBufferBuilder, CommandBufferUsage, RenderPassBeginInfo, SubpassBeginInfo, SubpassContents}, descriptor_set::{DescriptorSet, WriteDescriptorSet}, device::DeviceExtensions, instance::{Instance, InstanceCreateFlags, InstanceCreateInfo}, pipeline::{Pipeline, PipelineBindPoint, graphics::viewport::Viewport}, swapchain::{self, Surface, SwapchainPresentInfo}, sync::GpuFuture};
 use winit::{application::ApplicationHandler, event::WindowEvent, window::{Window}};
 
 pub struct AppConfiguration {
@@ -27,26 +27,21 @@ pub struct App {
 
 struct AppState {
     _vk_instance: Arc<Instance>,
+
     gpudevices: GpuDevices,
     render: Render,
     executor: Executor,
-    previous_frame_end: Option<Box<dyn GpuFuture>>,
-    rotation: f32,
+    framecontext: FrameContext,
 }
 
 impl AppState {
-    fn init(vk_instance: Arc<Instance>, gpudevices: GpuDevices, render: Render, executor: Executor) -> Self {
-        let previous_frame_end = Some(
-            vulkano::sync::now(gpudevices.logical_device.clone()).boxed()
-        );
-
+    fn init(vk_instance: Arc<Instance>, gpudevices: GpuDevices, render: Render, executor: Executor, framecontext: FrameContext) -> Self {
         Self { 
             _vk_instance: vk_instance, 
             gpudevices,
             render,
             executor,
-            previous_frame_end,
-            rotation: 0.3,
+            framecontext
         }
     }
 }
@@ -75,7 +70,16 @@ impl App {
     }
     
     // HELPERS!
-    fn hgpu_devices(&self) -> &GpuDevices {
+    fn hstate(&mut self) -> &mut AppState {
+        self.appstate.as_mut().expect_me("[CHRONA]: APPSTATE not initialized'panic>")
+    }
+
+    fn hwindow(&self) -> &Arc<Window> {
+        self.window.as_ref().expect_me("[CHRONA]: window not initialized'panic>")
+    }
+
+    // appstate...
+    fn hdevices(&self) -> &GpuDevices {
         &self.appstate.as_ref().expect_me("[CHRONA]: APPSTATE not initialized'panic>").gpudevices
     }
 
@@ -86,15 +90,6 @@ impl App {
     fn hexecutor(&self) -> &Executor {
         &self.appstate.as_ref().expect_me("[CHRONA]: APPSTATE not initialized'panic>").executor
     }
-    
-    fn hwindow(&self) -> &Arc<Window> {
-        self.window.as_ref().expect_me("[CHRONA]: window not initialized'panic>")
-    }
-    
-    fn _hinstance(&self) -> &Arc<Instance> {
-        &self.appstate.as_ref().expect_me("[CHRONA]: APPSTATE not initialized'panic>")._vk_instance
-    }
-
 }
 
 
@@ -138,21 +133,27 @@ impl ApplicationHandler for App {
         // viewport:
         let viewport = Viewport {
             offset: [0.0, 0.0],
-            extent: [1024.0, 1024.0],
+            extent: [self.app_config.width as f32, self.app_config.height as f32],
             depth_range: 0.0..=1.0,
         };
         // pipeline:
         let executor = Executor::init(render.memory_allocator.clone(), cube, gpudevices.logical_device.clone(), render.render_pass.clone(), viewport);
+
+        // framecontext:
+        let framecontext = FrameContext::init(gpudevices.clone(), render.clone());
+        
+
         // APPSTATE>>
         self.appstate = Some(AppState::init(
             appinstance, 
             gpudevices,
             render,
-            executor
+            executor,
+            framecontext
         ));
         // INIT VK END<<
 
-        println!("[CHRONA]: GPU [{}] is using for render!'LOG", self.hgpu_devices().device_name)
+        println!("[CHRONA]: GPU [{}] is using for render!'LOG", self.hdevices().device_name)
     }
 
     fn window_event(
@@ -169,66 +170,96 @@ impl ApplicationHandler for App {
             }
 
             WindowEvent::RedrawRequested => {
+                let window = self.hwindow().clone();
+                let extent: [u32; 2] = window.inner_size().into();
+
+                self.hstate().framecontext.previous_frame_end.as_mut().unwrap().cleanup_finished();
+
                 let (image_index, _suboptimal, acquire_future) =
-                    match swapchain::acquire_next_image(
-                        self.hrender().swapchain.clone(), None
-                    ).map_err(|e| e.unwrap()) {
+                    match swapchain::acquire_next_image(self.hrender().swapchain.clone(), None)
+                        .map_err(|e| e.unwrap())
+                    {
                         Ok(r) => r,
-                        Err(e) => panic!("failed to acquire next image: {e:?}"),
+                        Err(e) => {
+                            eprintln!("[CHRONA]: acquire_next_image: {e:?}");
+                            return;
+                        }
                     };
+
+                let elapsed = 0.4;
+                let aspect = extent[0] as f32 / extent[1] as f32;
+
+                let model = Mat4::from_rotation_y(elapsed)
+                    * Mat4::from_rotation_x(elapsed * 0.7)
+                    * Mat4::from_rotation_z(elapsed * 0.3);
+                let view = Mat4::look_at_rh(Vec3::new(0.0, 2.0, 3.0), Vec3::ZERO, Vec3::Y);
+                let mut proj = Mat4::perspective_rh(90_f32.to_radians(), aspect, 0.1, 100.0);
+                proj.y_axis.y *= -1.0;
+
+                let ubo = CameraUBO {
+                    model: model.to_cols_array_2d(),
+                    view:  view.to_cols_array_2d(),
+                    proj:  proj.to_cols_array_2d(),
+                };
+
+                let uniform_sub = self.hstate().framecontext.uniform_allocator
+                    .allocate_sized::<CameraUBO>().unwrap();
+                *uniform_sub.write().unwrap() = ubo;
+
+                let layout = self.hexecutor().pipeline.layout().set_layouts()[0].clone();
+                let descriptor_set = DescriptorSet::new(
+                    self.hstate().framecontext.descriptor_allocator.clone(),
+                    layout,
+                    [WriteDescriptorSet::buffer(0, uniform_sub)],
+                    [],
+                ).unwrap();
 
                 let mut builder = AutoCommandBufferBuilder::primary(
                     self.hexecutor().cmd_allocator.clone(),
-                    self.hgpu_devices().queue.queue_family_index(),
+                    self.hstate().gpudevices.queue.queue_family_index(),
                     CommandBufferUsage::OneTimeSubmit,
                 ).unwrap();
 
-                let state = self.appstate.as_mut().unwrap();
-                state.rotation += 0.01;
-
-                let transform = Mat4::from_rotation_z(state.rotation) * Mat4::from_rotation_x(state.rotation) * Mat4::from_rotation_y(state.rotation);
-                let push = PushConstants {
-                    transform: transform.to_cols_array_2d(),
-                };
-
-                unsafe { builder
-                    .begin_render_pass(
-                        RenderPassBeginInfo {
-                            clear_values: vec![Some([0.01, 0.01, 0.01, 1.0].into())],
-                            ..RenderPassBeginInfo::framebuffer(
-                                self.hrender().framebuffers[image_index as usize].clone()
-                            )
-                        },
-                        SubpassBeginInfo {
-                            contents: SubpassContents::Inline,
-                            ..Default::default()
-                        },
-                    ).unwrap()
-                    .set_viewport(0, [self.hexecutor().viewport.clone()].into_iter().collect()).unwrap()
-                    .bind_pipeline_graphics(self.hexecutor().pipeline.clone()).unwrap()
-                    .bind_vertex_buffers(0, self.hexecutor().vertex_buffer.clone()).unwrap()
-                    .push_constants(
-                        self.hexecutor().pipeline.clone().layout().clone(),
-                        0,
-                        push,
-                    ).unwrap()
-                    .draw(self.hexecutor().vertex_buffer.len() as u32, 1, 0, 0).unwrap()
-                    .end_render_pass(Default::default()).unwrap()
-                    
-                    };
-
+                unsafe {
+                    builder
+                        .begin_render_pass(
+                            RenderPassBeginInfo {
+                                clear_values: vec![
+                                    Some([0.0, 0.0, 0.0, 1.0].into()), // RGBA
+                                    Some(1.0f32.into()),               // DEPTH
+                                ],
+                                ..RenderPassBeginInfo::framebuffer(
+                                    self.hrender().framebuffers[image_index as usize].clone()
+                                )
+                            },
+                            SubpassBeginInfo {
+                                contents: SubpassContents::Inline,
+                                ..Default::default()
+                            },
+                        ).unwrap()
+                        .set_viewport(0, [self.hexecutor().viewport.clone()].into_iter().collect()).unwrap()
+                        .bind_pipeline_graphics(self.hexecutor().pipeline.clone()).unwrap()
+                        .bind_descriptor_sets(
+                            PipelineBindPoint::Graphics,
+                            self.hexecutor().pipeline.layout().clone(),
+                            0,
+                            descriptor_set,
+                        ).unwrap()
+                        .bind_vertex_buffers(0, self.hexecutor().vertex_buffer.clone()).unwrap()
+                        .draw(self.hexecutor().vertex_buffer.len() as u32, 1, 0, 0).unwrap()
+                        .end_render_pass(Default::default()).unwrap();
+                }
 
                 let command_buffer = builder.build().unwrap();
-                
-                let state = self.appstate.as_mut().unwrap();
-                let future = state.previous_frame_end
+
+                let future = self.hstate().framecontext.previous_frame_end
                     .take().unwrap()
                     .join(acquire_future)
-                    .then_execute(state.gpudevices.queue.clone(), command_buffer).unwrap()
+                    .then_execute(self.hstate().gpudevices.queue.clone(), command_buffer).unwrap()
                     .then_swapchain_present(
-                        state.gpudevices.queue.clone(),
+                        self.hstate().gpudevices.queue.clone(),
                         SwapchainPresentInfo::swapchain_image_index(
-                            state.render.swapchain.clone(),
+                            self.hrender().swapchain.clone(),
                             image_index,
                         ),
                     )
@@ -236,15 +267,17 @@ impl ApplicationHandler for App {
 
                 match future {
                     Ok(f) => {
-                        state.previous_frame_end = Some(f.boxed());
+                        self.hstate().framecontext.previous_frame_end = Some(f.boxed());
                     }
                     Err(e) => {
-                        state.previous_frame_end = Some(
-                            vulkano::sync::now(state.gpudevices.logical_device.clone()).boxed()
+                        eprintln!("[CHRONA]: flush'panic>: {e:?}'");
+                        self.hstate().framecontext.previous_frame_end = Some(
+                            vulkano::sync::now(self.hstate().gpudevices.logical_device.clone()).boxed()
                         );
                     }
                 }
-                self.hwindow().request_redraw();
+
+                window.request_redraw();
             }
 
             _ => ()

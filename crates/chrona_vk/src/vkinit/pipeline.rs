@@ -8,7 +8,7 @@ use crate::{pipelines::{fragmentshader, vertexshader}};
 use vulkano::{buffer::{Buffer, BufferContents, BufferCreateInfo, BufferUsage, Subbuffer}, memory::allocator::{AllocationCreateInfo, MemoryTypeFilter, StandardMemoryAllocator}};
 
 
-#[derive(BufferContents, Vertex)]
+#[derive(BufferContents, Vertex, Clone)]
 #[repr(C)]
 pub struct VertexDat {
     #[format(R32G32B32_SFLOAT)]

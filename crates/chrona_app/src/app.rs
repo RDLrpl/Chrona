@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use chrona_utils::binding::{OptionExt, ResultExt};
-use chrona_vk::{engine::{camera::CameraUBO, layout::cube::cube}, vkinit::{devices::GpuDevices, framecontext::{FrameContext}, pipeline::Executor, render::Render}};
+use chrona_vk::{engine::{camera::CameraUBO, layout::{world::scenes::Testscene}}, vkinit::{devices::GpuDevices, framecontext::FrameContext, pipeline::Executor, render::Render}};
 use glam::{Mat4, Vec3};
 use vulkano::{Version, VulkanLibrary, command_buffer::{AutoCommandBufferBuilder, CommandBufferUsage, RenderPassBeginInfo, SubpassBeginInfo, SubpassContents}, descriptor_set::{DescriptorSet, WriteDescriptorSet}, device::DeviceExtensions, instance::{Instance, InstanceCreateFlags, InstanceCreateInfo}, pipeline::{Pipeline, PipelineBindPoint, graphics::viewport::Viewport}, swapchain::{self, Surface, SwapchainPresentInfo}, sync::GpuFuture};
 use winit::{application::ApplicationHandler, event::WindowEvent, window::{Window}};
@@ -23,6 +23,9 @@ pub struct App {
 
     // vk>>
     appstate: Option<AppState>,
+
+    // world
+    scene: Testscene,
 }
 
 struct AppState {
@@ -56,9 +59,10 @@ impl AppConfiguration {
         }
     }
 }
+//let testobj = Model::load("assets/monkey.obj".to_string());
 
 impl App {
-    pub fn new(app_config: AppConfiguration, device_exstensions: DeviceExtensions) -> Self {
+    pub fn new(app_config: AppConfiguration, device_exstensions: DeviceExtensions, scenes: Testscene) -> Self {
         Self {
             window: None, 
             
@@ -66,6 +70,7 @@ impl App {
             app_config,
 
             appstate: None,
+            scene: scenes,
         }
     }
     
@@ -128,7 +133,7 @@ impl ApplicationHandler for App {
         // Render:
         let render = Render::init(appinstance.clone(), gpudevices.clone(), window);
         // scene loader:
-        let cube = cube();
+        // let cube = cube();
 
         // viewport:
         let viewport = Viewport {
@@ -136,13 +141,15 @@ impl ApplicationHandler for App {
             extent: [self.app_config.width as f32, self.app_config.height as f32],
             depth_range: 0.0..=1.0,
         };
+        // scene>>
+        let vertdata = self.scene.md.vertdat.clone();
+
         // pipeline:
-        let executor = Executor::init(render.memory_allocator.clone(), cube, gpudevices.logical_device.clone(), render.render_pass.clone(), viewport);
+        let executor = Executor::init(render.memory_allocator.clone(), vertdata, gpudevices.logical_device.clone(), render.render_pass.clone(), viewport);
 
         // framecontext:
         let framecontext = FrameContext::init(gpudevices.clone(), render.clone());
         
-
         // APPSTATE>>
         self.appstate = Some(AppState::init(
             appinstance, 
@@ -151,6 +158,7 @@ impl ApplicationHandler for App {
             executor,
             framecontext
         ));
+        
         // INIT VK END<<
 
         println!("[CHRONA]: GPU [{}] is using for render!'LOG", self.hdevices().device_name)
@@ -188,13 +196,15 @@ impl ApplicationHandler for App {
 
                 let elapsed = 0.4;
                 let aspect = extent[0] as f32 / extent[1] as f32;
-
+        
                 let model = Mat4::from_rotation_y(elapsed)
                     * Mat4::from_rotation_x(elapsed * 0.7)
                     * Mat4::from_rotation_z(elapsed * 0.3);
                 let view = Mat4::look_at_rh(Vec3::new(0.0, 2.0, 3.0), Vec3::ZERO, Vec3::Y);
                 let mut proj = Mat4::perspective_rh(90_f32.to_radians(), aspect, 0.1, 100.0);
                 proj.y_axis.y *= -1.0;
+
+
 
                 let ubo = CameraUBO {
                     model: model.to_cols_array_2d(),

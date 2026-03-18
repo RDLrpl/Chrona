@@ -288,6 +288,7 @@ name = "chrona_vk"
 version = "0.1.0"
 dependencies = [
  "chrona_utils",
+ "tobj",
  "vulkano",
  "vulkano-shaders",
  "winit",
@@ -1923,6 +1924,15 @@ dependencies = [
  "arrayref",
  "bytemuck",
  "strict-num",
+]
+
+[[package]]
+name = "tobj"
+version = "4.0.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "04aca6092e5978e708ee784e8ab9b5cf3cdb598b28f99a2f257446e7081a7025"
+dependencies = [
+ "ahash",
 ]
 
 [[package]]

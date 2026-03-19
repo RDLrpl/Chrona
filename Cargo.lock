@@ -8,7 +8,6 @@ version = "1.0.0"
 dependencies = [
  "chrona_app",
  "chrona_utils",
- "chrona_vk",
  "vulkano",
  "winit",
 ]

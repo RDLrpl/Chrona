@@ -1,18 +1,12 @@
 use std::sync::Arc;
 
 use chrona_utils::binding::{OptionExt, ResultExt};
-use chrona_vk::{engine::{camera::CameraUBO, layout::{world::scenes::Testscene}}, vkinit::{devices::GpuDevices, framecontext::FrameContext, pipeline::Executor, render::Render}};
+use chrona_vk::{engine::{camera::CameraUBO, layout::{obj::Model, world::world::{Scene, World}}}, vkinit::{devices::GpuDevices, framecontext::FrameContext, pipeline::Executor, render::Render}};
 use glam::{Mat4, Vec3};
 use vulkano::{Version, VulkanLibrary, command_buffer::{AutoCommandBufferBuilder, CommandBufferUsage, RenderPassBeginInfo, SubpassBeginInfo, SubpassContents}, descriptor_set::{DescriptorSet, WriteDescriptorSet}, device::DeviceExtensions, instance::{Instance, InstanceCreateFlags, InstanceCreateInfo}, pipeline::{Pipeline, PipelineBindPoint, graphics::viewport::Viewport}, swapchain::{self, Surface, SwapchainPresentInfo}, sync::GpuFuture};
 use winit::{application::ApplicationHandler, event::WindowEvent, window::{Window}};
 
-pub struct AppConfiguration {
-    width: u32,
-    height: u32,
-    fullscreen: bool,
-    app_version: [u32; 3],
-    projname: String,
-}
+use crate::app_struct::{AppConfiguration, AppData, AppState};
 
 pub struct App {
     window: Option<Arc<Window>>,
@@ -20,57 +14,27 @@ pub struct App {
     // configuration>>
     app_config: AppConfiguration,
     device_exstensions: DeviceExtensions,
+    app_data: AppData,
 
     // vk>>
     appstate: Option<AppState>,
 
     // world
-    scene: Testscene,
+    world: Option<World>,
 }
-
-struct AppState {
-    _vk_instance: Arc<Instance>,
-
-    gpudevices: GpuDevices,
-    render: Render,
-    executor: Executor,
-    framecontext: FrameContext,
-}
-
-impl AppState {
-    fn init(vk_instance: Arc<Instance>, gpudevices: GpuDevices, render: Render, executor: Executor, framecontext: FrameContext) -> Self {
-        Self { 
-            _vk_instance: vk_instance, 
-            gpudevices,
-            render,
-            executor,
-            framecontext
-        }
-    }
-}
-impl AppConfiguration {
-    pub fn new(projname: &str, app_version: [u32; 3], width: u32, height: u32, fullscreen: bool) -> Self {
-        Self {
-            projname: projname.to_string(),
-            app_version,
-            width,
-            height,
-            fullscreen
-        }
-    }
-}
-//let testobj = Model::load("assets/monkey.obj".to_string());
 
 impl App {
-    pub fn new(app_config: AppConfiguration, device_exstensions: DeviceExtensions, scenes: Testscene) -> Self {
+    pub fn new(app_config: AppConfiguration, device_exstensions: DeviceExtensions, app_data: AppData) -> Self {
         Self {
             window: None, 
             
             device_exstensions,
             app_config,
-
+            app_data,
+            
+            world: None,
+            
             appstate: None,
-            scene: scenes,
         }
     }
     
@@ -109,7 +73,7 @@ impl ApplicationHandler for App {
             ))
         ).unwrap());
         self.window = Some(window.clone());
-        // INIT VK in APP!!!! >>
+        // Engine Init >>
 
         // VK Instance
         let library = VulkanLibrary::new().expect_me("[CHRONA]: 'VK-init`NO local VK LIB'panic>");
@@ -132,8 +96,6 @@ impl ApplicationHandler for App {
         let gpudevices = GpuDevices::init(appinstance.clone(), self.device_exstensions);
         // Render:
         let render = Render::init(appinstance.clone(), gpudevices.clone(), window);
-        // scene loader:
-        // let cube = cube();
 
         // viewport:
         let viewport = Viewport {
@@ -141,11 +103,21 @@ impl ApplicationHandler for App {
             extent: [self.app_config.width as f32, self.app_config.height as f32],
             depth_range: 0.0..=1.0,
         };
-        // scene>>
-        let vertdata = self.scene.md.vertdat.clone();
+
+        // * Scenes>
+        let mut scene = Scene { models: vec![] };
+
+        for path in self.app_data.models_paths.clone() {
+            let model = Model::load(path, render.memory_allocator.clone());
+
+            scene.models.push(model);
+        }
+        // let vertdata = self.scene.md.vertdat.clone();
+        // * World> 
+        self.world = Some(World { scenes: vec![scene] });
 
         // pipeline:
-        let executor = Executor::init(render.memory_allocator.clone(), vertdata, gpudevices.logical_device.clone(), render.render_pass.clone(), viewport);
+        let executor = Executor::init(gpudevices.logical_device.clone(), render.render_pass.clone(), viewport);
 
         // framecontext:
         let framecontext = FrameContext::init(gpudevices.clone(), render.clone());
@@ -159,7 +131,7 @@ impl ApplicationHandler for App {
             framecontext
         ));
         
-        // INIT VK END<<
+        // Engine Init END<<
 
         println!("[CHRONA]: GPU [{}] is using for render!'LOG", self.hdevices().device_name)
     }
@@ -174,40 +146,47 @@ impl ApplicationHandler for App {
             WindowEvent::CloseRequested => event_loop.exit(),
             
             WindowEvent::Resized(_) => {
+                let window = self.hwindow().clone();
+                let gpudevices = self.hstate().gpudevices.clone();
+                let extent: [u32; 2] = window.inner_size().into();
 
+                self.hstate().render.recreate_swapchain(&gpudevices, window);
+
+                self.hstate().executor.viewport.extent = [extent[0] as f32, extent[1] as f32];
+            }
+            
+            WindowEvent::Moved(_) => {
+                self.hstate().moving = true;
             }
 
             WindowEvent::RedrawRequested => {
+                if self.hstate().moving {
+                    self.hstate().moving = false;
+                    return;
+                }
+                
                 let window = self.hwindow().clone();
                 let extent: [u32; 2] = window.inner_size().into();
-
+                
                 self.hstate().framecontext.previous_frame_end.as_mut().unwrap().cleanup_finished();
 
-                let (image_index, _suboptimal, acquire_future) =
-                    match swapchain::acquire_next_image(self.hrender().swapchain.clone(), None)
-                        .map_err(|e| e.unwrap())
-                    {
-                        Ok(r) => r,
-                        Err(e) => {
-                            eprintln!("[CHRONA]: acquire_next_image: {e:?}");
-                            return;
-                        }
-                    };
+                let (image_index, _, acquire_future) = 
+                match swapchain::acquire_next_image(self.hrender().swapchain.clone(), None) {
+                    Ok(r) => r,
+                    Err(e) => {
+                        println!("[CHRONA]: acquire_next_image'warn>: {:?}", e);
+                        return;
+                    }
+                };
 
-                let elapsed = 0.4;
                 let aspect = extent[0] as f32 / extent[1] as f32;
-        
-                let model = Mat4::from_rotation_y(elapsed)
-                    * Mat4::from_rotation_x(elapsed * 0.7)
-                    * Mat4::from_rotation_z(elapsed * 0.3);
-                let view = Mat4::look_at_rh(Vec3::new(0.0, 2.0, 3.0), Vec3::ZERO, Vec3::Y);
-                let mut proj = Mat4::perspective_rh(90_f32.to_radians(), aspect, 0.1, 100.0);
+
+                let view = Mat4::look_at_rh(Vec3::new(0.0, 1.0, 2.4), Vec3::ZERO, Vec3::Y);
+                let mut proj = Mat4::perspective_rh(60_f32.to_radians(), aspect, 0.1, 100.0);
                 proj.y_axis.y *= -1.0;
 
-
-
                 let ubo = CameraUBO {
-                    model: model.to_cols_array_2d(),
+                    model: Mat4::IDENTITY.to_cols_array_2d(),
                     view:  view.to_cols_array_2d(),
                     proj:  proj.to_cols_array_2d(),
                 };
@@ -230,35 +209,37 @@ impl ApplicationHandler for App {
                     CommandBufferUsage::OneTimeSubmit,
                 ).unwrap();
 
-                unsafe {
-                    builder
-                        .begin_render_pass(
-                            RenderPassBeginInfo {
-                                clear_values: vec![
-                                    Some([0.0, 0.0, 0.0, 1.0].into()), // RGBA
-                                    Some(1.0f32.into()),               // DEPTH
-                                ],
-                                ..RenderPassBeginInfo::framebuffer(
-                                    self.hrender().framebuffers[image_index as usize].clone()
-                                )
-                            },
-                            SubpassBeginInfo {
-                                contents: SubpassContents::Inline,
-                                ..Default::default()
-                            },
-                        ).unwrap()
-                        .set_viewport(0, [self.hexecutor().viewport.clone()].into_iter().collect()).unwrap()
-                        .bind_pipeline_graphics(self.hexecutor().pipeline.clone()).unwrap()
-                        .bind_descriptor_sets(
-                            PipelineBindPoint::Graphics,
-                            self.hexecutor().pipeline.layout().clone(),
-                            0,
-                            descriptor_set,
-                        ).unwrap()
-                        .bind_vertex_buffers(0, self.hexecutor().vertex_buffer.clone()).unwrap()
-                        .draw(self.hexecutor().vertex_buffer.len() as u32, 1, 0, 0).unwrap()
-                        .end_render_pass(Default::default()).unwrap();
-                }
+                // Render START>>
+                builder
+                    .begin_render_pass(
+                        RenderPassBeginInfo {
+                            clear_values: vec![
+                                Some([0.0, 0.0, 0.0, 1.0].into()), // RGBA
+                                Some(1.0f32.into()),               // DEPTH
+                             ],
+                            ..RenderPassBeginInfo::framebuffer(
+                                self.hrender().framebuffers[image_index as usize].clone()
+                            )
+                        },
+                        SubpassBeginInfo {
+                        contents: SubpassContents::Inline,
+                        ..Default::default()
+                    },
+                    ).unwrap()
+                    .set_viewport(0, [self.hexecutor().viewport.clone()].into_iter().collect()).unwrap()
+                    .bind_pipeline_graphics(self.hexecutor().pipeline.clone()).unwrap()
+                    .bind_descriptor_sets(
+                        PipelineBindPoint::Graphics,
+                        self.hexecutor().pipeline.layout().clone(),
+                        0,
+                        descriptor_set,
+                    ).unwrap();
+                
+                let scene = &self.world.as_ref().unwrap().scenes[0];
+                self.hexecutor().draw(&mut builder, &scene);
+
+                builder.end_render_pass(Default::default()).unwrap();
+                // Render END<<
 
                 let command_buffer = builder.build().unwrap();
 
@@ -280,7 +261,7 @@ impl ApplicationHandler for App {
                         self.hstate().framecontext.previous_frame_end = Some(f.boxed());
                     }
                     Err(e) => {
-                        eprintln!("[CHRONA]: flush'panic>: {e:?}'");
+                        println!("[CHRONA]: flush'warn>: {e:?}'");
                         self.hstate().framecontext.previous_frame_end = Some(
                             vulkano::sync::now(self.hstate().gpudevices.logical_device.clone()).boxed()
                         );

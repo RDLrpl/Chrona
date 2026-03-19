@@ -1,5 +1,4 @@
-use chrona_app::app::{App, AppConfiguration};
-use chrona_vk::engine::layout::{obj::Model, world::scenes::Testscene};
+use chrona_app::{app::App, app_struct::{AppConfiguration, AppData}};
 use vulkano::device::DeviceExtensions;
 use winit::event_loop::{ControlFlow, EventLoop};
 use chrona_utils::binding::ResultExt;
@@ -19,13 +18,17 @@ fn main() {
         false  // fullscreen?
     );
 
-    let testobj = Model::load("assets/monkey.obj".to_string());
+    // AppData
+    let mut models_path = Vec::new();
 
-    let scene = Testscene {
-        md: testobj,
-    };
+    // Models
+    models_path.push(
+        "assets/monkey/monkey.obj".to_string()
+    );
+    
+    let app_data = AppData::load(models_path);
 
-    let mut app = App::new(appconfig, device_extensions, scene);
+    let mut app = App::new(appconfig, device_extensions, app_data);
 
     event_loop.set_control_flow(ControlFlow::Poll);
     event_loop.run_app(&mut app).expect_me("[CHRONA]: loop'panic>");

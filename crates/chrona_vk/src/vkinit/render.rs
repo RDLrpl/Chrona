@@ -10,7 +10,10 @@ use crate::vkinit::devices::GpuDevices;
 pub struct Render {
     pub surface: Arc<Surface>,
     
-    pub swapchain: Arc<Swapchain>,
+    pub 
+    
+    
+    swapchain: Arc<Swapchain>,
     pub images: Vec<Arc<Image>>,
 
     pub render_pass: Arc<RenderPass>,
@@ -109,5 +112,52 @@ impl Render {
             
             memory_allocator
         }
+    }
+    
+    pub fn recreate_swapchain(&mut self, gpudevices: &GpuDevices, window: Arc<Window>) {
+        let surface_format = gpudevices.physical_device
+            .surface_formats(&self.surface, Default::default())
+            .unwrap()[0].0;
+
+        let (new_swapchain, new_images) = match self.swapchain.recreate(SwapchainCreateInfo {
+            image_extent: window.inner_size().into(),
+            image_format: surface_format,
+            ..self.swapchain.create_info()
+        }) {
+            Ok(r) => r,
+            Err(e) => panic!("Failed to recreate swapchain: {e:?}"),
+        };
+
+        
+
+        let depth_image = Image::new(
+            self.memory_allocator.clone(),
+            ImageCreateInfo {
+                image_type: ImageType::Dim2d,
+                format: Format::D16_UNORM,
+                extent: new_images[0].extent(),
+                usage: ImageUsage::DEPTH_STENCIL_ATTACHMENT,
+                ..Default::default()
+            },
+            AllocationCreateInfo::default(),
+        ).unwrap();
+
+        let depth_view = ImageView::new_default(depth_image).unwrap();
+
+        let new_framebuffers = new_images.iter().map(|image| {
+            let color_view = ImageView::new_default(image.clone()).unwrap();
+
+            Framebuffer::new(
+                self.render_pass.clone(),
+                FramebufferCreateInfo {
+                    attachments: vec![color_view, depth_view.clone()], 
+                    ..Default::default()
+                },
+            ).unwrap()
+        }).collect::<Vec<_>>();
+
+        self.swapchain = new_swapchain;
+        self.images = new_images;
+        self.framebuffers = new_framebuffers;
     }
 }

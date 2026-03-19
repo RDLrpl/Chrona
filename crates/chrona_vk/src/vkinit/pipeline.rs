@@ -1,11 +1,11 @@
 use std::sync::Arc;
 
 use chrona_utils::binding::ResultExt;
-use vulkano::{command_buffer::allocator::{StandardCommandBufferAllocator, StandardCommandBufferAllocatorCreateInfo}, device::Device, pipeline::{GraphicsPipeline, PipelineLayout, PipelineShaderStageCreateInfo, graphics::{GraphicsPipelineCreateInfo, color_blend::{ColorBlendAttachmentState, ColorBlendState}, depth_stencil::{DepthState, DepthStencilState}, input_assembly::InputAssemblyState, multisample::MultisampleState, rasterization::RasterizationState, vertex_input::{Vertex, VertexDefinition}, viewport::{Viewport, ViewportState}}, layout::PipelineDescriptorSetLayoutCreateInfo}, render_pass::{RenderPass, Subpass}};
+use vulkano::{command_buffer::{AutoCommandBufferBuilder, PrimaryAutoCommandBuffer, allocator::{StandardCommandBufferAllocator, StandardCommandBufferAllocatorCreateInfo}}, device::Device, pipeline::{DynamicState, GraphicsPipeline, PipelineLayout, PipelineShaderStageCreateInfo, graphics::{GraphicsPipelineCreateInfo, color_blend::{ColorBlendAttachmentState, ColorBlendState}, depth_stencil::{DepthState, DepthStencilState}, input_assembly::InputAssemblyState, multisample::MultisampleState, rasterization::RasterizationState, vertex_input::{Vertex, VertexDefinition}, viewport::{Viewport, ViewportState}}, layout::PipelineDescriptorSetLayoutCreateInfo}, render_pass::{RenderPass, Subpass}};
 
-use crate::{pipelines::{fragmentshader, vertexshader}};
+use crate::{engine::layout::world::world::Scene, pipelines::{fragmentshader, vertexshader}};
 
-use vulkano::{buffer::{Buffer, BufferContents, BufferCreateInfo, BufferUsage, Subbuffer}, memory::allocator::{AllocationCreateInfo, MemoryTypeFilter, StandardMemoryAllocator}};
+use vulkano::{buffer::{BufferContents}};
 
 
 #[derive(BufferContents, Vertex, Clone)]
@@ -26,7 +26,6 @@ pub struct PushConstants {
 }
 
 pub struct Executor {
-    pub vertex_buffer: Subbuffer<[VertexDat]>,
     pub pipeline: Arc<GraphicsPipeline>,
 
     pub viewport: Viewport,
@@ -34,24 +33,9 @@ pub struct Executor {
 }
 
 impl Executor {
-    pub fn init(memory_allocator: Arc<StandardMemoryAllocator>, vertexes: Vec<VertexDat>, device: Arc<Device>, render_pass: Arc<RenderPass>, viewport: Viewport) -> Self {
+    pub fn init(device: Arc<Device>, render_pass: Arc<RenderPass>, viewport: Viewport) -> Self {
 
-        let vertex_buffer = Buffer::from_iter(
-            memory_allocator.clone(),
-            BufferCreateInfo {
-                usage: BufferUsage::VERTEX_BUFFER,
-                ..Default::default()
-            },
-            AllocationCreateInfo {
-                memory_type_filter: MemoryTypeFilter::PREFER_DEVICE
-                    | MemoryTypeFilter::HOST_SEQUENTIAL_WRITE,
-                ..Default::default()
-            },
-            vertexes,
-        )
-        .unwrap();
-
-        let pipeline = gen_pipeline(device.clone(), render_pass, viewport.clone());
+        let pipeline = gen_pipeline(device.clone(), render_pass);
 
         let cmd_allocator = Arc::new(StandardCommandBufferAllocator::new(
             device,
@@ -59,20 +43,32 @@ impl Executor {
         ));
 
         Self {  
-            vertex_buffer,
             pipeline,
             cmd_allocator,
             viewport
         }
     }
+
+    pub fn draw(&self, builder: &mut AutoCommandBufferBuilder<PrimaryAutoCommandBuffer>, scene: &Scene) {
+        // builder
+        //    .bind_pipeline_graphics(self.pipeline.clone()).unwrap()
+        //    .set_viewport(0, [self.viewport.clone()].into_iter().collect()).expect_me("[CHRONA]: Bind Pipeline'panic>");
+
+        for model in &scene.models {
+            unsafe {
+                builder
+                    .bind_vertex_buffers(0, model.vertex_buffer.clone()).unwrap()
+                    .draw(model.vertex_buffer.len() as u32, 1, 0, 0)
+                    .expect_me("[CHRONA]: Draw Model'panic>");
+            }
+        }
+    }
+
 }
-
-
 
 pub fn gen_pipeline(
     device: Arc<Device>,
-    render_pass: Arc<RenderPass>,
-    viewport: Viewport,
+    render_pass: Arc<RenderPass>
 ) -> Arc<GraphicsPipeline> {
     let vs = vertexshader::load(device.clone()).unwrap().entry_point("main").unwrap();
     let fs = fragmentshader::load(device.clone()).unwrap().entry_point("main").unwrap();
@@ -100,10 +96,8 @@ pub fn gen_pipeline(
             stages: stages.into_iter().collect(),
             vertex_input_state: Some(vertex_input_state),
             input_assembly_state: Some(InputAssemblyState::default()),
-            viewport_state: Some(ViewportState {
-                viewports: [viewport].into_iter().collect(),
-                ..Default::default()
-            }),
+            viewport_state: Some(ViewportState::default()),
+            dynamic_state: [DynamicState::Viewport].into_iter().collect(),
             rasterization_state: Some(RasterizationState::default()),
             multisample_state: Some(MultisampleState::default()),
             depth_stencil_state: Some(DepthStencilState {

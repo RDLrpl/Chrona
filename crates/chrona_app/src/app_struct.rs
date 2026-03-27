@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use chrona_utils::modeldata::ModelData;
 use chrona_vk::vkinit::{devices::GpuDevices, framecontext::FrameContext, pipeline::Executor, render::Render};
 use vulkano::instance::Instance;
 
@@ -24,13 +25,13 @@ pub struct AppState {
 }
 
 pub struct AppData {
-    pub models_paths: Vec<String>
+    pub model_datas: Vec<ModelData>
 }
 
 impl AppData {
-    pub fn load(models_paths: Vec<String>) -> Self{
+    pub fn load(model_datas: Vec<ModelData>) -> Self{
         Self {
-            models_paths
+            model_datas
         }
     }
 }

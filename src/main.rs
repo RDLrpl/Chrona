@@ -1,7 +1,7 @@
 use chrona_app::{app::App, app_struct::{AppConfiguration, AppData}};
 use vulkano::device::DeviceExtensions;
 use winit::event_loop::{ControlFlow, EventLoop};
-use chrona_utils::binding::ResultExt;
+use chrona_utils::{binding::ResultExt, modeldata::ModelData};
 
 fn main() {
     let event_loop = EventLoop::builder().build().unwrap();
@@ -19,14 +19,15 @@ fn main() {
     );
 
     // AppData
-    let mut models_path = Vec::new();
+    let mut modelsdat = Vec::new();
 
     // Models
-    models_path.push(
-        "assets/monkey/monkey.obj".to_string()
+    modelsdat.push(
+        // path, position, rotation, scale
+        ModelData::init("assets/monkey/monkey.obj".to_string(), [0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [1.0, 1.0, 1.0]) 
     );
     
-    let app_data = AppData::load(models_path);
+    let app_data = AppData::load(modelsdat);
 
     let mut app = App::new(appconfig, device_extensions, app_data);
 

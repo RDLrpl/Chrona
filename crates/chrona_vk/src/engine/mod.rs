@@ -1,2 +1,2 @@
-pub mod camera;
+pub mod shr;
 pub mod layout;

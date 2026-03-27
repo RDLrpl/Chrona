@@ -309,6 +309,7 @@ name = "chrona_vk"
 version = "0.1.0"
 dependencies = [
  "chrona_utils",
+ "glam",
  "tobj",
  "vulkano",
  "vulkano-shaders",

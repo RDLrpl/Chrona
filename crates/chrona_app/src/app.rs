@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use chrona_utils::binding::{OptionExt, ResultExt};
-use chrona_vk::{engine::{camera::CameraUBO, layout::{obj::Model, world::world::{Scene, World}}}, vkinit::{devices::GpuDevices, framecontext::FrameContext, pipeline::Executor, render::Render}};
+use chrona_vk::{engine::{layout::{obj::{Model, Transform}, world::world::{Scene, World}}, shr::CameraUBO}, vkinit::{devices::GpuDevices, framecontext::FrameContext, pipeline::Executor, render::Render}};
 use glam::{Mat4, Vec3};
 use vulkano::{Version, VulkanLibrary, command_buffer::{AutoCommandBufferBuilder, CommandBufferUsage, RenderPassBeginInfo, SubpassBeginInfo, SubpassContents}, descriptor_set::{DescriptorSet, WriteDescriptorSet}, device::DeviceExtensions, instance::{Instance, InstanceCreateFlags, InstanceCreateInfo}, pipeline::{Pipeline, PipelineBindPoint, graphics::viewport::Viewport}, swapchain::{self, Surface, SwapchainPresentInfo}, sync::GpuFuture};
 use winit::{application::ApplicationHandler, event::WindowEvent, window::{Window}};
@@ -107,8 +107,13 @@ impl ApplicationHandler for App {
         // * Scenes>
         let mut scene = Scene { models: vec![] };
 
-        for path in self.app_data.models_paths.clone() {
-            let model = Model::load(path, render.memory_allocator.clone());
+        for modelsdat in self.app_data.model_datas.clone() {
+            let model = Model::load(modelsdat.path, render.memory_allocator.clone(), 
+            Transform::push(
+                modelsdat.transform.p_xyz,
+                modelsdat.transform.r_xyz,
+                modelsdat.transform.s_xyz,
+            ));
 
             scene.models.push(model);
         }
@@ -199,7 +204,9 @@ impl ApplicationHandler for App {
                 let descriptor_set = DescriptorSet::new(
                     self.hstate().framecontext.descriptor_allocator.clone(),
                     layout,
-                    [WriteDescriptorSet::buffer(0, uniform_sub)],
+                    [
+                        WriteDescriptorSet::buffer(0, uniform_sub)
+                    ],
                     [],
                 ).unwrap();
 

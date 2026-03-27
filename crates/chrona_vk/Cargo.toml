@@ -8,5 +8,6 @@ vulkano = "0.35.2"
 vulkano-shaders = "0.35.0"
 winit = "0.30.13"
 tobj = "4.0.3"
+glam = "0.32.1"
 
 chrona_utils = { path = "../chrona_utils" }

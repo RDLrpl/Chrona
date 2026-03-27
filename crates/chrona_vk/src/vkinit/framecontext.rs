@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use vulkano::{buffer::{BufferUsage, allocator::{SubbufferAllocator, SubbufferAllocatorCreateInfo}}, descriptor_set::allocator::StandardDescriptorSetAllocator, memory::allocator::MemoryTypeFilter, sync::GpuFuture};
+use vulkano::{descriptor_set::allocator::DescriptorSetAllocator, buffer::{BufferUsage, allocator::{SubbufferAllocator, SubbufferAllocatorCreateInfo}}, descriptor_set::allocator::StandardDescriptorSetAllocator, memory::allocator::MemoryTypeFilter, sync::GpuFuture};
 
 use crate::vkinit::{devices::GpuDevices, render::Render};
 
@@ -9,7 +9,7 @@ pub struct FrameContext {
     pub previous_frame_end: Option<Box<dyn GpuFuture>>,
 
     // allocators
-    pub descriptor_allocator: Arc<dyn vulkano::descriptor_set::allocator::DescriptorSetAllocator>,
+    pub descriptor_allocator: Arc<dyn DescriptorSetAllocator>,
     pub uniform_allocator: SubbufferAllocator
 }
 

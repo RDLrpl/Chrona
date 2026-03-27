@@ -1,9 +1,9 @@
 use std::sync::Arc;
 
 use chrona_utils::binding::ResultExt;
-use vulkano::{command_buffer::{AutoCommandBufferBuilder, PrimaryAutoCommandBuffer, allocator::{StandardCommandBufferAllocator, StandardCommandBufferAllocatorCreateInfo}}, device::Device, pipeline::{DynamicState, GraphicsPipeline, PipelineLayout, PipelineShaderStageCreateInfo, graphics::{GraphicsPipelineCreateInfo, color_blend::{ColorBlendAttachmentState, ColorBlendState}, depth_stencil::{DepthState, DepthStencilState}, input_assembly::InputAssemblyState, multisample::MultisampleState, rasterization::RasterizationState, vertex_input::{Vertex, VertexDefinition}, viewport::{Viewport, ViewportState}}, layout::PipelineDescriptorSetLayoutCreateInfo}, render_pass::{RenderPass, Subpass}};
+use vulkano::{command_buffer::{AutoCommandBufferBuilder, PrimaryAutoCommandBuffer, allocator::{StandardCommandBufferAllocator, StandardCommandBufferAllocatorCreateInfo}}, device::Device, pipeline::{DynamicState, GraphicsPipeline, Pipeline, PipelineLayout, PipelineShaderStageCreateInfo, graphics::{GraphicsPipelineCreateInfo, color_blend::{ColorBlendAttachmentState, ColorBlendState}, depth_stencil::{DepthState, DepthStencilState}, input_assembly::InputAssemblyState, multisample::MultisampleState, rasterization::RasterizationState, vertex_input::{Vertex, VertexDefinition}, viewport::{Viewport, ViewportState}}, layout::PipelineDescriptorSetLayoutCreateInfo}, render_pass::{RenderPass, Subpass}};
 
-use crate::{engine::layout::world::world::Scene, pipelines::{fragmentshader, vertexshader}};
+use crate::{engine::{layout::world::world::Scene, shr::ModelPushConstant}, pipelines::{fragmentshader, vertexshader}};
 
 use vulkano::{buffer::{BufferContents}};
 
@@ -12,7 +12,7 @@ use vulkano::{buffer::{BufferContents}};
 #[repr(C)]
 pub struct VertexDat {
     #[format(R32G32B32_SFLOAT)]
-    pub position: [f32; 3],
+    pub vecposition: [f32; 3],
     #[format(R32G32_SFLOAT)]
     pub uv: [f32; 2],
     #[format(R32G32B32_SFLOAT)]
@@ -50,13 +50,14 @@ impl Executor {
     }
 
     pub fn draw(&self, builder: &mut AutoCommandBufferBuilder<PrimaryAutoCommandBuffer>, scene: &Scene) {
-        // builder
-        //    .bind_pipeline_graphics(self.pipeline.clone()).unwrap()
-        //    .set_viewport(0, [self.viewport.clone()].into_iter().collect()).expect_me("[CHRONA]: Bind Pipeline'panic>");
-
         for model in &scene.models {
+            let push = ModelPushConstant {
+                model: model.transf.to_model_matrix().to_cols_array_2d(),
+            };
+            
             unsafe {
                 builder
+                    .push_constants(self.pipeline.layout().clone(), 0, push).unwrap()
                     .bind_vertex_buffers(0, model.vertex_buffer.clone()).unwrap()
                     .draw(model.vertex_buffer.len() as u32, 1, 0, 0)
                     .expect_me("[CHRONA]: Draw Model'panic>");

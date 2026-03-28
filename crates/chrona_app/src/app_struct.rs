@@ -21,7 +21,7 @@ pub struct AppState {
     pub executor: Executor,
     pub framecontext: FrameContext,
 
-    pub moving: bool,
+    pub moving: bool
 }
 
 pub struct AppData {

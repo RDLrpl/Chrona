@@ -1,9 +1,9 @@
 use std::sync::Arc;
 
 use chrona_utils::binding::ResultExt;
-use vulkano::{command_buffer::{AutoCommandBufferBuilder, PrimaryAutoCommandBuffer, allocator::{StandardCommandBufferAllocator, StandardCommandBufferAllocatorCreateInfo}}, device::Device, pipeline::{DynamicState, GraphicsPipeline, Pipeline, PipelineLayout, PipelineShaderStageCreateInfo, graphics::{GraphicsPipelineCreateInfo, color_blend::{ColorBlendAttachmentState, ColorBlendState}, depth_stencil::{DepthState, DepthStencilState}, input_assembly::InputAssemblyState, multisample::MultisampleState, rasterization::RasterizationState, vertex_input::{Vertex, VertexDefinition}, viewport::{Viewport, ViewportState}}, layout::PipelineDescriptorSetLayoutCreateInfo}, render_pass::{RenderPass, Subpass}};
+use vulkano::{command_buffer::{AutoCommandBufferBuilder, PrimaryAutoCommandBuffer, allocator::{StandardCommandBufferAllocator, StandardCommandBufferAllocatorCreateInfo}}, descriptor_set::{DescriptorSet, WriteDescriptorSet}, device::Device, image::sampler::{Sampler, SamplerCreateInfo}, pipeline::{DynamicState, GraphicsPipeline, Pipeline, PipelineBindPoint, PipelineLayout, PipelineShaderStageCreateInfo, graphics::{GraphicsPipelineCreateInfo, color_blend::{ColorBlendAttachmentState, ColorBlendState}, depth_stencil::{DepthState, DepthStencilState}, input_assembly::InputAssemblyState, multisample::MultisampleState, rasterization::RasterizationState, vertex_input::{Vertex, VertexDefinition}, viewport::{Viewport, ViewportState}}, layout::PipelineDescriptorSetLayoutCreateInfo}, render_pass::{RenderPass, Subpass}};
 
-use crate::{engine::{layout::world::world::Scene, shr::ModelPushConstant}, pipelines::{fragmentshader, vertexshader}};
+use crate::{engine::{layout::world::world::Scene, shr::ModelPushConstant}, pipelines::{fragmentshader, vertexshader}, vkinit::framecontext::FrameContext};
 
 use vulkano::{buffer::{BufferContents}};
 
@@ -30,31 +30,58 @@ pub struct Executor {
 
     pub viewport: Viewport,
     pub cmd_allocator: Arc<StandardCommandBufferAllocator>,
+    pub sampler: Arc<Sampler>, 
 }
 
 impl Executor {
-    pub fn init(device: Arc<Device>, render_pass: Arc<RenderPass>, viewport: Viewport) -> Self {
+    pub fn init(
+        device: Arc<Device>, 
+        render_pass: Arc<RenderPass>,
+        viewport: Viewport
+    ) -> Self {
 
         let pipeline = gen_pipeline(device.clone(), render_pass);
 
         let cmd_allocator = Arc::new(StandardCommandBufferAllocator::new(
-            device,
+            device.clone(),
             StandardCommandBufferAllocatorCreateInfo::default(),
         ));
+
+        let sampler = Sampler::new(
+            device,
+            SamplerCreateInfo::simple_repeat_linear(),
+        ).unwrap();
 
         Self {  
             pipeline,
             cmd_allocator,
-            viewport
+            viewport,
+            sampler
         }
     }
 
-    pub fn draw(&self, builder: &mut AutoCommandBufferBuilder<PrimaryAutoCommandBuffer>, scene: &Scene) {
+    pub fn draw(&self, builder: &mut AutoCommandBufferBuilder<PrimaryAutoCommandBuffer>, scene: &Scene, frame_ctx: &FrameContext,) {
         for model in &scene.models {
+            let layout = self.pipeline.layout().set_layouts()[1].clone();
+
+            let descriptor_set = DescriptorSet::new(
+                frame_ctx.descriptor_allocator.clone(),
+                layout,
+                [WriteDescriptorSet::image_view_sampler(0, model.texture.clone(), self.sampler.clone())],
+                [],
+            ).unwrap();
+
+            builder.bind_descriptor_sets(
+                PipelineBindPoint::Graphics,
+                self.pipeline.layout().clone(),
+                1,
+                descriptor_set,
+            ).unwrap();
+            
             let push = ModelPushConstant {
                 model: model.transf.to_model_matrix().to_cols_array_2d(),
             };
-            
+
             unsafe {
                 builder
                     .push_constants(self.pipeline.layout().clone(), 0, push).unwrap()

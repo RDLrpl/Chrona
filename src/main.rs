@@ -18,14 +18,14 @@ fn main() {
         false  // fullscreen?
     );
 
-    // AppData
-    let mut modelsdat = Vec::new();
+    // AppData>>
 
     // Models
-    modelsdat.push(
+    let modelsdat = vec![
         // path, position, rotation, scale
-        ModelData::init("assets/monkey/monkey.obj".to_string(), [0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [1.0, 1.0, 1.0]) 
-    );
+        ModelData::init("assets/monkey_with_texture/monkey.obj".to_string(), [1.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.5, 0.5, 0.5]),
+        ModelData::init("assets/greenmonkey/monkey.obj".to_string(), [-1.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.5, 0.5, 0.5]),
+    ];
     
     let app_data = AppData::load(modelsdat);
 

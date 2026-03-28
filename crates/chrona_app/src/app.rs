@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use chrona_utils::binding::{OptionExt, ResultExt};
-use chrona_vk::{engine::{layout::{obj::{Model, Transform}, world::world::{Scene, World}}, shr::CameraUBO}, vkinit::{devices::GpuDevices, framecontext::FrameContext, pipeline::Executor, render::Render}};
+use chrona_vk::{engine::{layout::{loadout::obj::{Model, Transform}, world::world::{Scene, World}}, shr::CameraUBO}, vkinit::{devices::GpuDevices, framecontext::FrameContext, pipeline::Executor, render::Render}};
 use glam::{Mat4, Vec3};
 use vulkano::{Version, VulkanLibrary, command_buffer::{AutoCommandBufferBuilder, CommandBufferUsage, RenderPassBeginInfo, SubpassBeginInfo, SubpassContents}, descriptor_set::{DescriptorSet, WriteDescriptorSet}, device::DeviceExtensions, instance::{Instance, InstanceCreateFlags, InstanceCreateInfo}, pipeline::{Pipeline, PipelineBindPoint, graphics::viewport::Viewport}, swapchain::{self, Surface, SwapchainPresentInfo}, sync::GpuFuture};
 use winit::{application::ApplicationHandler, event::WindowEvent, window::{Window}};
@@ -104,29 +104,33 @@ impl ApplicationHandler for App {
             depth_range: 0.0..=1.0,
         };
 
-        // * Scenes>
-        let mut scene = Scene { models: vec![] };
-
-        for modelsdat in self.app_data.model_datas.clone() {
-            let model = Model::load(modelsdat.path, render.memory_allocator.clone(), 
-            Transform::push(
-                modelsdat.transform.p_xyz,
-                modelsdat.transform.r_xyz,
-                modelsdat.transform.s_xyz,
-            ));
-
-            scene.models.push(model);
-        }
-        // let vertdata = self.scene.md.vertdat.clone();
-        // * World> 
-        self.world = Some(World { scenes: vec![scene] });
-
         // pipeline:
         let executor = Executor::init(gpudevices.logical_device.clone(), render.render_pass.clone(), viewport);
 
         // framecontext:
         let framecontext = FrameContext::init(gpudevices.clone(), render.clone());
         
+        // * Scenes>
+        let mut scene = Scene { models: vec![] };
+
+        for modelsdat in self.app_data.model_datas.clone() {
+            let model = Model::load(
+                modelsdat.path, 
+                render.memory_allocator.clone(), 
+                gpudevices.queue.clone(), 
+                Transform::push(
+                    modelsdat.transform.p_xyz,
+                    modelsdat.transform.r_xyz,
+                    modelsdat.transform.s_xyz,
+                ),
+                executor.cmd_allocator.clone(),
+            );
+            scene.models.push(model);
+        }
+
+        // * World> 
+        self.world = Some(World { scenes: vec![scene] });
+
         // APPSTATE>>
         self.appstate = Some(AppState::init(
             appinstance, 
@@ -150,7 +154,11 @@ impl ApplicationHandler for App {
         match event {
             WindowEvent::CloseRequested => event_loop.exit(),
             
-            WindowEvent::Resized(_) => {
+            WindowEvent::Resized(new_size) => {
+                if new_size.width == 0 || new_size.height == 0 {
+                    return;
+                }
+
                 let window = self.hwindow().clone();
                 let gpudevices = self.hstate().gpudevices.clone();
                 let extent: [u32; 2] = window.inner_size().into();
@@ -159,11 +167,11 @@ impl ApplicationHandler for App {
 
                 self.hstate().executor.viewport.extent = [extent[0] as f32, extent[1] as f32];
             }
-            
+
             WindowEvent::Moved(_) => {
                 self.hstate().moving = true;
             }
-
+        
             WindowEvent::RedrawRequested => {
                 if self.hstate().moving {
                     self.hstate().moving = false;
@@ -201,7 +209,7 @@ impl ApplicationHandler for App {
                 *uniform_sub.write().unwrap() = ubo;
 
                 let layout = self.hexecutor().pipeline.layout().set_layouts()[0].clone();
-                let descriptor_set = DescriptorSet::new(
+                let camera_descriptor = DescriptorSet::new(
                     self.hstate().framecontext.descriptor_allocator.clone(),
                     layout,
                     [
@@ -235,15 +243,16 @@ impl ApplicationHandler for App {
                     ).unwrap()
                     .set_viewport(0, [self.hexecutor().viewport.clone()].into_iter().collect()).unwrap()
                     .bind_pipeline_graphics(self.hexecutor().pipeline.clone()).unwrap()
-                    .bind_descriptor_sets(
+                    .bind_descriptor_sets(   
                         PipelineBindPoint::Graphics,
                         self.hexecutor().pipeline.layout().clone(),
-                        0,
-                        descriptor_set,
+                        0,                       
+                        camera_descriptor,
                     ).unwrap();
                 
                 let scene = &self.world.as_ref().unwrap().scenes[0];
-                self.hexecutor().draw(&mut builder, &scene);
+                
+                self.hexecutor().draw(&mut builder, &scene, &self.appstate.as_ref().unwrap().framecontext);
 
                 builder.end_render_pass(Default::default()).unwrap();
                 // Render END<<

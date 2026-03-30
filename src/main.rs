@@ -1,7 +1,9 @@
-use chrona_app::{app::App, app_struct::{AppConfiguration, AppData}};
+use chrona_app::{app::App, app_struct::{AppConfiguration, AppData, GameFunc}};
 use vulkano::device::DeviceExtensions;
 use winit::event_loop::{ControlFlow, EventLoop};
-use chrona_utils::{binding::ResultExt, modeldata::ModelData};
+use chrona_utils::{binding::ResultExt, data::{ModelData, SceneData, WorldData}};
+
+mod game;
 
 fn main() {
     let event_loop = EventLoop::builder().build().unwrap();
@@ -23,11 +25,23 @@ fn main() {
     // Models
     let modelsdat = vec![
         // path, position, rotation, scale
-        ModelData::init("assets/monkey_with_texture/monkey.obj".to_string(), [1.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.5, 0.5, 0.5]),
-        ModelData::init("assets/greenmonkey/monkey.obj".to_string(), [-1.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.5, 0.5, 0.5]),
+        ModelData::init(1, "assets/monkey_with_texture/monkey.obj".to_string(), [1.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.5, 0.5, 0.5]),
+        ModelData::init(2, "assets/greenmonkey/monkey.obj".to_string(), [-1.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.5, 0.5, 0.5]),
     ];
     
-    let app_data = AppData::load(modelsdat);
+    // World
+    let scenes = vec![
+        SceneData::init(0, modelsdat)
+    ];
+
+    let world = WorldData::init(scenes);
+
+    // Handle Functions
+    let functions = GameFunc::load(
+        game::on_update,
+    );
+
+    let app_data = AppData::load(world, functions);
 
     let mut app = App::new(appconfig, device_extensions, app_data);
 

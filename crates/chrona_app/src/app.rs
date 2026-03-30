@@ -111,10 +111,12 @@ impl ApplicationHandler for App {
         let framecontext = FrameContext::init(gpudevices.clone(), render.clone());
         
         // * Scenes>
-        let mut scene = Scene { models: vec![] };
+        /* 
+        let mut scene = Scene { id: 0, models: vec![] };
 
-        for modelsdat in self.app_data.model_datas.clone() {
+        for modelsdat in self.app_data..clone() {
             let model = Model::load(
+                modelsdat.id,
                 modelsdat.path, 
                 render.memory_allocator.clone(), 
                 gpudevices.queue.clone(), 
@@ -130,7 +132,7 @@ impl ApplicationHandler for App {
 
         // * World> 
         self.world = Some(World { scenes: vec![scene] });
-
+*/
         // APPSTATE>>
         self.appstate = Some(AppState::init(
             appinstance, 
@@ -217,6 +219,8 @@ impl ApplicationHandler for App {
                     ],
                     [],
                 ).unwrap();
+
+                (self.app_data.func.on_update)();
 
                 let mut builder = AutoCommandBufferBuilder::primary(
                     self.hexecutor().cmd_allocator.clone(),

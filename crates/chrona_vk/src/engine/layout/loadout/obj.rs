@@ -13,6 +13,7 @@ pub struct Transform {
 } 
 
 pub struct Model {
+    pub id: u32,
     pub name: String,
     pub vertdat: Vec<VertexDat>,
     pub transf: Transform,
@@ -58,12 +59,15 @@ impl Transform {
 
 impl Model {
     pub fn load(
+        id: u32,
         path: String, 
         memory_allocator: Arc<StandardMemoryAllocator>,
         queue: Arc<Queue>, 
         transform: Transform,
         cmd_allocator: Arc<StandardCommandBufferAllocator>
     ) -> Self {
+        assert!(id > 0, "Model ID Must be > 0");
+
         let (models, materials) = tobj::load_obj(path.clone(), &tobj::GPU_LOAD_OPTIONS).expect("OBJ (No Exist?) file ERR");
         let mats = materials.unwrap_or_default();
         
@@ -146,6 +150,7 @@ impl Model {
         .unwrap();
 
         Self { 
+            id,
             name: model_name.to_string(),
             transf: transform,
 

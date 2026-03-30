@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
-use chrona_utils::modeldata::ModelData;
-use chrona_vk::vkinit::{devices::GpuDevices, framecontext::FrameContext, pipeline::Executor, render::Render};
+use chrona_utils::data::WorldData;
+use chrona_vk::{vkinit::{devices::GpuDevices, framecontext::FrameContext, pipeline::Executor, render::Render}};
 use vulkano::instance::Instance;
 
 
@@ -25,13 +25,27 @@ pub struct AppState {
 }
 
 pub struct AppData {
-    pub model_datas: Vec<ModelData>
+    pub world: WorldData, 
+    pub func:  GameFunc,
+}
+
+pub struct GameFunc {
+    pub on_update: fn(),
+}
+
+impl GameFunc {
+    pub fn load(on_update: fn()) -> Self {
+        Self {
+            on_update
+        }
+    }
 }
 
 impl AppData {
-    pub fn load(model_datas: Vec<ModelData>) -> Self{
+    pub fn load(world: WorldData, func: GameFunc) -> Self{
         Self {
-            model_datas
+            world,
+            func
         }
     }
 }

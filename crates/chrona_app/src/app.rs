@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration, vec};
 
 use chrona_utils::binding::{OptionExt, ResultExt};
 use chrona_vk::{engine::{layout::{loadout::obj::{Model, Transform}, world::world::{Scene, World}}, shr::CameraUBO}, vkinit::{devices::GpuDevices, framecontext::FrameContext, pipeline::Executor, render::Render}};
@@ -20,7 +20,7 @@ pub struct App {
     appstate: Option<AppState>,
 
     // world
-    world: Option<World>,
+    pub world: Option<World>,
 }
 
 impl App {
@@ -110,29 +110,33 @@ impl ApplicationHandler for App {
         // framecontext:
         let framecontext = FrameContext::init(gpudevices.clone(), render.clone());
         
-        // * Scenes>
-        /* 
-        let mut scene = Scene { id: 0, models: vec![] };
+        // World>
+        let mut scenes = vec![];
 
-        for modelsdat in self.app_data..clone() {
-            let model = Model::load(
-                modelsdat.id,
-                modelsdat.path, 
-                render.memory_allocator.clone(), 
-                gpudevices.queue.clone(), 
-                Transform::push(
-                    modelsdat.transform.p_xyz,
-                    modelsdat.transform.r_xyz,
-                    modelsdat.transform.s_xyz,
-                ),
-                executor.cmd_allocator.clone(),
-            );
-            scene.models.push(model);
+        for scensdat in self.app_data.world.scenesdata.clone() {
+            let mut models = vec![];
+
+            for modelsdat in scensdat.modelsdata.clone() {
+                let model = Model::load(
+                    modelsdat.id,
+                    modelsdat.path, 
+                    render.memory_allocator.clone(), 
+                    gpudevices.queue.clone(), 
+                    Transform::push(
+                        modelsdat.transform.p_xyz,
+                        modelsdat.transform.r_xyz,
+                        modelsdat.transform.s_xyz,
+                    ),
+                    executor.cmd_allocator.clone(),
+                );
+                models.push(model);
+            }
+            scenes.push(Scene::make(scensdat.id, models));
         }
 
-        // * World> 
-        self.world = Some(World { scenes: vec![scene] });
-*/
+
+        self.world = Some(World::make(scenes));
+
         // APPSTATE>>
         self.appstate = Some(AppState::init(
             appinstance, 
@@ -149,13 +153,15 @@ impl ApplicationHandler for App {
 
     fn window_event(
             &mut self,
-            event_loop: &winit::event_loop::ActiveEventLoop,
+            _: &winit::event_loop::ActiveEventLoop,
             _window_id: winit::window::WindowId,
             event: winit::event::WindowEvent,
         ) {
         match event {
-            WindowEvent::CloseRequested => event_loop.exit(),
-            
+            WindowEvent::CloseRequested => {
+                std::process::exit(0);       
+            }
+
             WindowEvent::Resized(new_size) => {
                 if new_size.width == 0 || new_size.height == 0 {
                     return;
@@ -177,6 +183,7 @@ impl ApplicationHandler for App {
             WindowEvent::RedrawRequested => {
                 if self.hstate().moving {
                     self.hstate().moving = false;
+                    self.hwindow().request_redraw();
                     return;
                 }
                 
@@ -186,9 +193,12 @@ impl ApplicationHandler for App {
                 self.hstate().framecontext.previous_frame_end.as_mut().unwrap().cleanup_finished();
 
                 let (image_index, _, acquire_future) = 
-                match swapchain::acquire_next_image(self.hrender().swapchain.clone(), None) {
+                match swapchain::acquire_next_image(self.hrender().swapchain.clone(),  Some(Duration::from_millis(16))) {
                     Ok(r) => r,
                     Err(e) => {
+                        let window = self.hwindow().clone();
+                        let gpudevices = self.hstate().gpudevices.clone();
+                        self.hstate().render.recreate_swapchain(&gpudevices, window);
                         println!("[CHRONA]: acquire_next_image'warn>: {:?}", e);
                         return;
                     }
@@ -219,8 +229,6 @@ impl ApplicationHandler for App {
                     ],
                     [],
                 ).unwrap();
-
-                (self.app_data.func.on_update)();
 
                 let mut builder = AutoCommandBufferBuilder::primary(
                     self.hexecutor().cmd_allocator.clone(),
@@ -254,9 +262,12 @@ impl ApplicationHandler for App {
                         camera_descriptor,
                     ).unwrap();
                 
-                let scene = &self.world.as_ref().unwrap().scenes[0];
+                let world = self.world.as_ref().unwrap();
+                let scene = world.return_cur_scene().expect_me(format!("[CHRONA]: NO_SCENE[{}]'panic", world.curscene).as_str());
                 
                 self.hexecutor().draw(&mut builder, &scene, &self.appstate.as_ref().unwrap().framecontext);
+
+                (self.app_data.func.on_update)(self);
 
                 builder.end_render_pass(Default::default()).unwrap();
                 // Render END<<

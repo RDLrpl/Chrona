@@ -6,12 +6,14 @@ use vulkano::{buffer::{Buffer, BufferCreateInfo, BufferUsage, Subbuffer}, comman
 
 use crate::{engine::layout::loadout::image::{no_texture, upload_texture}, vkinit::pipeline::VertexDat};
 
+#[derive(Clone)]
 pub struct Transform {
     pub position: [f32; 3],
     pub rotation: [f32; 3],
     pub scale: [f32; 3]
 } 
 
+#[derive(Clone)]
 pub struct Model {
     pub id: u32,
     pub name: String,

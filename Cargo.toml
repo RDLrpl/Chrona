@@ -9,6 +9,7 @@ vulkano = "0.35.2"
 
 chrona_app = { path = "crates/chrona_app" }
 chrona_utils = { path = "crates/chrona_utils" }
+chrona_api = { path = "crates/chrona_api"}
 # chrona_vk = { path = "crates/chrona_vk" }
 
 [profile.dev]

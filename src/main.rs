@@ -23,18 +23,24 @@ fn main() {
     // AppData>>
 
     // Models
-    let modelsdat = vec![
+    let models_scene_one = vec![
         // path, position, rotation, scale
         ModelData::init(1, "assets/monkey_with_texture/monkey.obj".to_string(), [1.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.5, 0.5, 0.5]),
         ModelData::init(2, "assets/greenmonkey/monkey.obj".to_string(), [-1.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.5, 0.5, 0.5]),
     ];
-    
-    // World
-    let scenes = vec![
-        SceneData::init(0, modelsdat)
+
+    let models_scene_two = vec![
+        // path, position, rotation, scale
+        ModelData::init(1, "assets/monkey_with_texture/monkey.obj".to_string(), [0.0, 1.0, 0.0], [0.0, 0.0, 0.0], [0.25, 0.25, 0.25])
     ];
 
-    let world = WorldData::init(scenes);
+    // World
+    let world = WorldData::init(
+        vec![
+            SceneData::init(0, models_scene_one),
+            SceneData::init(1, models_scene_two)
+        ]
+    );
 
     // Handle Functions
     let functions = GameFunc::load(

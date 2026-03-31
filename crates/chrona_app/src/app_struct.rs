@@ -4,6 +4,8 @@ use chrona_utils::data::WorldData;
 use chrona_vk::{vkinit::{devices::GpuDevices, framecontext::FrameContext, pipeline::Executor, render::Render}};
 use vulkano::instance::Instance;
 
+use crate::app::App;
+
 
 pub struct AppConfiguration {
     pub width: u32,
@@ -21,7 +23,7 @@ pub struct AppState {
     pub executor: Executor,
     pub framecontext: FrameContext,
 
-    pub moving: bool
+    pub moving: bool,
 }
 
 pub struct AppData {
@@ -30,11 +32,11 @@ pub struct AppData {
 }
 
 pub struct GameFunc {
-    pub on_update: fn(),
+    pub on_update: fn(&mut App),
 }
 
 impl GameFunc {
-    pub fn load(on_update: fn()) -> Self {
+    pub fn load(on_update: fn(&mut App)) -> Self {
         Self {
             on_update
         }

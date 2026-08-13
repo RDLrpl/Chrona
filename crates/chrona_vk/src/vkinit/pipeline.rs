@@ -1,23 +1,13 @@
 use std::sync::Arc;
 
-use chrona_utils::binding::ResultExt;
+use chrona_utils::data::VertexDat;
+use chrona_world::engine::{layout::world::world::Scene, shr::ModelPushConstant};
 use vulkano::{command_buffer::{AutoCommandBufferBuilder, PrimaryAutoCommandBuffer, allocator::{StandardCommandBufferAllocator, StandardCommandBufferAllocatorCreateInfo}}, descriptor_set::{DescriptorSet, WriteDescriptorSet}, device::Device, image::sampler::{Sampler, SamplerCreateInfo}, pipeline::{DynamicState, GraphicsPipeline, Pipeline, PipelineBindPoint, PipelineLayout, PipelineShaderStageCreateInfo, graphics::{GraphicsPipelineCreateInfo, color_blend::{ColorBlendAttachmentState, ColorBlendState}, depth_stencil::{DepthState, DepthStencilState}, input_assembly::InputAssemblyState, multisample::MultisampleState, rasterization::RasterizationState, vertex_input::{Vertex, VertexDefinition}, viewport::{Viewport, ViewportState}}, layout::PipelineDescriptorSetLayoutCreateInfo}, render_pass::{RenderPass, Subpass}};
 
-use crate::{engine::{layout::world::world::Scene, shr::ModelPushConstant}, pipelines::{fragmentshader, vertexshader}, vkinit::framecontext::FrameContext};
+use crate::{pipelines::{fragmentshader, vertexshader}, vkinit::framecontext::FrameContext};
 
 use vulkano::{buffer::{BufferContents}};
 
-
-#[derive(BufferContents, Vertex, Clone)]
-#[repr(C)]
-pub struct VertexDat {
-    #[format(R32G32B32_SFLOAT)]
-    pub vecposition: [f32; 3],
-    #[format(R32G32_SFLOAT)]
-    pub uv: [f32; 2],
-    #[format(R32G32B32_SFLOAT)]
-    pub color: [f32; 3],
-}
 
 #[derive(BufferContents)]
 #[repr(C)]
@@ -87,7 +77,7 @@ impl Executor {
                     .push_constants(self.pipeline.layout().clone(), 0, push).unwrap()
                     .bind_vertex_buffers(0, model.vertex_buffer.clone()).unwrap()
                     .draw(model.vertex_buffer.len() as u32, 1, 0, 0)
-                    .expect_me("[CHRONA]: Draw Model'panic>");
+                    .expect("[CHRONA]: Draw Model'panic>");
             }
         }
     }
@@ -139,6 +129,6 @@ pub fn gen_pipeline(
             subpass: Some(subpass.into()),
             ..GraphicsPipelineCreateInfo::layout(layout)
         },
-    ).expect_me("[CHRONA]: Pipeline'panic>")
+    ).expect("[CHRONA]: Pipeline'panic>")
     
 }

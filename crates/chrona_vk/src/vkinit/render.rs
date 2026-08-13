@@ -1,6 +1,5 @@
 use std::sync::Arc;
 
-use chrona_utils::binding::ResultExt;
 use vulkano::{format::Format, image::{Image, ImageCreateInfo, ImageType, ImageUsage, view::ImageView}, instance::Instance, memory::allocator::{AllocationCreateInfo, StandardMemoryAllocator}, render_pass::{Framebuffer, FramebufferCreateInfo, RenderPass}, swapchain::{Surface, Swapchain, SwapchainCreateInfo}};
 use winit::window::Window;
 
@@ -9,23 +8,19 @@ use crate::vkinit::devices::GpuDevices;
 #[derive(Clone)]
 pub struct Render {
     pub surface: Arc<Surface>,
-    
-    pub 
-    
-    
-    swapchain: Arc<Swapchain>,
+
+    pub swapchain: Arc<Swapchain>,
     pub images: Vec<Arc<Image>>,
 
     pub render_pass: Arc<RenderPass>,
     pub framebuffers: Vec<Arc<Framebuffer>>,
 
     pub memory_allocator: Arc<StandardMemoryAllocator>
-    // pub surfacecapabilities: SurfaceCapabilities,
 }
 
 impl Render {
     pub fn init(vk_instance: Arc<Instance>, gpudevices: GpuDevices, window: Arc<Window>) -> Self {
-        let surface = Surface::from_window(vk_instance, window.clone()).expect_me("[CHRONA]: Surface'panic>");
+        let surface = Surface::from_window(vk_instance, window.clone()).expect("[CHRONA]: Surface'panic>");
 
         let surface_capabilities = gpudevices.physical_device
             .surface_capabilities(&surface, Default::default())
@@ -44,6 +39,7 @@ impl Render {
                 image_extent: window.inner_size().into(),
                 image_usage: ImageUsage::COLOR_ATTACHMENT,
                 composite_alpha: surface_capabilities.supported_composite_alpha.into_iter().next().unwrap(),
+                present_mode: vulkano::swapchain::PresentMode::Immediate,
                 ..Default::default()
             },
         ).unwrap();
@@ -73,29 +69,29 @@ impl Render {
                 depth_stencil: {depth},
             },
         )
-        .expect_me("[CHRONA]: RENDER_PASS'panic>");
-        
-        let depth_image = Image::new(
-            memory_allocator.clone(),
-            ImageCreateInfo {
-                image_type: ImageType::Dim2d,
-                format: Format::D16_UNORM,
-                extent: images[0].extent(),
-                usage: ImageUsage::DEPTH_STENCIL_ATTACHMENT,
-                ..Default::default()
-            },
-            AllocationCreateInfo::default(),
-        ).unwrap();
+        .expect("[CHRONA]: RENDER_PASS'panic>");
 
-        let depth_view = ImageView::new_default(depth_image).unwrap();
+        let depth_images: Vec<Arc<ImageView>> = images.iter().map(|image| {
+            let depth_image = Image::new(
+                memory_allocator.clone(),
+                ImageCreateInfo {
+                    image_type: ImageType::Dim2d,
+                    format: Format::D16_UNORM,
+                    extent: image.extent(),
+                    usage: ImageUsage::DEPTH_STENCIL_ATTACHMENT,
+                    ..Default::default()
+                },
+                AllocationCreateInfo::default(),
+            ).unwrap();
+            ImageView::new_default(depth_image).unwrap()
+        }).collect();
 
-        let framebuffers = images.iter().map(|image| {
+        let framebuffers = images.iter().zip(depth_images.iter()).map(|(image, depth_view)| {
             let color_view = ImageView::new_default(image.clone()).unwrap();
-
             Framebuffer::new(
                 render_pass.clone(),
                 FramebufferCreateInfo {
-                    attachments: vec![color_view, depth_view.clone()], 
+                    attachments: vec![color_view, depth_view.clone()],
                     ..Default::default()
                 },
             ).unwrap()
@@ -106,21 +102,29 @@ impl Render {
 
             swapchain,
             images,
-            
+
             render_pass,
             framebuffers,
-            
+
             memory_allocator
         }
     }
-    
+
     pub fn recreate_swapchain(&mut self, gpudevices: &GpuDevices, window: Arc<Window>) {
+        let window_size = window.inner_size();
+
+        if window_size.width == 0 || window_size.height == 0 {
+            return;
+        }
+
+        unsafe { gpudevices.logical_device.wait_idle().unwrap(); }
+
         let surface_format = gpudevices.physical_device
             .surface_formats(&self.surface, Default::default())
             .unwrap()[0].0;
 
         let (new_swapchain, new_images) = match self.swapchain.recreate(SwapchainCreateInfo {
-            image_extent: window.inner_size().into(),
+            image_extent: window_size.into(),
             image_format: surface_format,
             ..self.swapchain.create_info()
         }) {
@@ -128,29 +132,29 @@ impl Render {
             Err(e) => panic!("Failed to recreate swapchain: {e:?}"),
         };
 
-        
+        self.framebuffers.clear();
 
-        let depth_image = Image::new(
-            self.memory_allocator.clone(),
-            ImageCreateInfo {
-                image_type: ImageType::Dim2d,
-                format: Format::D16_UNORM,
-                extent: new_images[0].extent(),
-                usage: ImageUsage::DEPTH_STENCIL_ATTACHMENT,
-                ..Default::default()
-            },
-            AllocationCreateInfo::default(),
-        ).unwrap();
+        let depth_images: Vec<Arc<ImageView>> = new_images.iter().map(|image| {
+            let depth_image = Image::new(
+                self.memory_allocator.clone(),
+                ImageCreateInfo {
+                    image_type: ImageType::Dim2d,
+                    format: Format::D16_UNORM,
+                    extent: image.extent(),
+                    usage: ImageUsage::DEPTH_STENCIL_ATTACHMENT,
+                    ..Default::default()
+                },
+                AllocationCreateInfo::default(),
+            ).unwrap();
+            ImageView::new_default(depth_image).unwrap()
+        }).collect();
 
-        let depth_view = ImageView::new_default(depth_image).unwrap();
-
-        let new_framebuffers = new_images.iter().map(|image| {
+        let new_framebuffers = new_images.iter().zip(depth_images.iter()).map(|(image, depth_view)| {
             let color_view = ImageView::new_default(image.clone()).unwrap();
-
             Framebuffer::new(
                 self.render_pass.clone(),
                 FramebufferCreateInfo {
-                    attachments: vec![color_view, depth_view.clone()], 
+                    attachments: vec![color_view, depth_view.clone()],
                     ..Default::default()
                 },
             ).unwrap()

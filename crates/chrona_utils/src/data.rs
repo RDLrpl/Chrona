@@ -1,3 +1,42 @@
+use vulkano::{buffer::BufferContents, device::DeviceExtensions, pipeline::graphics::vertex_input::Vertex};
+
+// minimal units
+#[derive(BufferContents, Vertex, Clone)]
+#[repr(C)]
+pub struct VertexDat {
+    #[format(R32G32B32_SFLOAT)]
+    pub vecposition: [f32; 3],
+    #[format(R32G32_SFLOAT)]
+    pub uv: [f32; 2],
+    #[format(R32G32B32_SFLOAT)]
+    pub color: [f32; 3],
+}
+
+
+// Engine
+#[derive(Clone)]
+pub struct AppConfiguration {
+    pub width: u32,
+    pub height: u32,
+    pub fullscreen: bool,
+    pub app_version: [u32; 3],
+    pub projname: String,
+
+    pub device_extensions: DeviceExtensions,
+}
+
+impl AppConfiguration {
+    pub fn new(projname: &str, app_version: [u32; 3], width: u32, height: u32, fullscreen: bool, device_extensions: DeviceExtensions) -> Self {
+        Self {
+            projname: projname.to_string(),
+            app_version,
+            width,
+            height,
+            fullscreen,
+            device_extensions
+        }
+    }
+}
 
 // World
 #[derive(Clone)]

@@ -9,5 +9,7 @@ vulkano = "0.35.2"
 
 chrona_vk = { path = "../chrona_vk" }
 chrona_utils = { path = "../chrona_utils" }
+chrona_engine = { path = "../chrona_engine" }
+chrona_world = { path = "../chrona_world" }
 glam = "0.32.1"
 

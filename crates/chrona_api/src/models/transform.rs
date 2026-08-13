@@ -1,4 +1,5 @@
-use chrona_vk::engine::layout::world::world::World;
+use chrona_world::engine::layout::world::world::World;
+
 
 pub fn rotate_object(world: &mut World, target: u32, rotate: [f32; 3]) {
     let curscene = world.return_mutcur_scene().unwrap();

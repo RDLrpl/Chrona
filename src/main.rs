@@ -1,7 +1,8 @@
-use chrona_app::{app::App, app_struct::{AppConfiguration, AppData, GameFunc}};
+use chrona_app::{app::App};
+use chrona_engine::eab::eab::{GameData, GameFunc};
 use vulkano::device::DeviceExtensions;
 use winit::event_loop::{ControlFlow, EventLoop};
-use chrona_utils::{binding::ResultExt, data::{ModelData, SceneData, WorldData}};
+use chrona_utils::data::{AppConfiguration, ModelData, SceneData, WorldData};
 
 mod game;
 
@@ -17,9 +18,10 @@ fn main() {
         "ChronaEngine APP", // app name
         [1, 0, 0], // app version
         800, 600, // width & height
-        false  // fullscreen?
-    );
+        false, // fullscreen?
 
+        device_extensions
+    );
     // AppData>>
 
     // Models
@@ -42,15 +44,16 @@ fn main() {
         ]
     );
 
+
     // Handle Functions
-    let functions = GameFunc::load(
-        game::on_update,
-    );
+    let functions = GameFunc {
+        on_frame_update: game::on_frame_update
+    };
 
-    let app_data = AppData::load(world, functions);
+    let app_data = GameData::load(world, functions);
 
-    let mut app = App::new(appconfig, device_extensions, app_data);
+    let mut app = App::new(appconfig, app_data);
 
     event_loop.set_control_flow(ControlFlow::Poll);
-    event_loop.run_app(&mut app).expect_me("[CHRONA]: loop'panic>");
+    event_loop.run_app(&mut app).expect("[CHRONA]: loop'panic>");
 }

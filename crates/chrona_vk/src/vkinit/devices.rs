@@ -1,8 +1,6 @@
 use std::{error::Error, sync::Arc};
 
 use vulkano::{device::{Device, DeviceCreateInfo, DeviceExtensions, Queue, QueueCreateInfo, QueueFlags, physical::{PhysicalDevice, PhysicalDeviceType}}, instance::Instance};
-use chrona_utils::binding::{OptionExt, ResultExt};
-
 
 #[derive(Clone)]
 pub struct GpuDevices {
@@ -17,7 +15,7 @@ pub struct GpuDevices {
 impl GpuDevices {
     pub fn init(appinstance: Arc<Instance>, device_exstensions: DeviceExtensions) -> Self {
         // Phys Device
-        let (physical_device, device_name) = best_gpu(appinstance, device_exstensions).expect_me("[ERROR] GPU INIT>").unwrap();
+        let (physical_device, device_name) = best_gpu(appinstance, device_exstensions).expect("[ERROR] GPU INIT>").unwrap();
 
         // choosing GPU GRAPHICS QUEUE (req. logic device)
         let queue_family_index = physical_device
@@ -26,7 +24,7 @@ impl GpuDevices {
             .position(|queue_family_properties| {
                 queue_family_properties.queue_flags.contains(QueueFlags::GRAPHICS)
             })
-            .expect_me("[CHRONA]: NO QUEUE'panic>") as u32;
+            .expect("[CHRONA]: NO QUEUE'panic>") as u32;
 
         // logic device
         let (logical_device, mut queues) = Device::new(
@@ -40,10 +38,10 @@ impl GpuDevices {
                 ..Default::default()
             },
         )
-        .expect_me("[CHRONA]: FAILED TO CREATE LOGICAL GPU'panic>");
+        .expect("[CHRONA]: FAILED TO CREATE LOGICAL GPU'panic>");
         
         // prefer queue
-        let queue = queues.next().expect_me("[CHRONA]: NO QUEUE'panic>");
+        let queue = queues.next().expect("[CHRONA]: NO QUEUE'panic>");
 
         Self {
             physical_device,
@@ -84,12 +82,12 @@ fn best_gpu(vk_instance: Arc<Instance>, device_exstensions: DeviceExtensions) ->
         current_score += (memory_mb * 4.5) as u32;
 
 
-        if best_device.is_none() || current_score > best_device.as_ref().expect_me("[CHRONA]: NO VALID GPU ![maybe, you have GPU without VK support or smth problems in vkinit>best_gpu(CHRONA)]'panic>").1 {
+        if best_device.is_none() || current_score > best_device.as_ref().expect("[CHRONA]: NO VALID GPU ![maybe, you have GPU without VK support or smth problems in vkinit>best_gpu(CHRONA)]'panic>").1 {
             best_device = Some((device, current_score));
         }
     }
 
-    let (winner_device, _) = best_device.expect_me("[CHRONA]: NO VALID GPU ![maybe, you have GPU without VK support]'panic>");
+    let (winner_device, _) = best_device.expect("[CHRONA]: NO VALID GPU ![maybe, you have GPU without VK support]'panic>");
 
     let devicename = winner_device.properties().device_name.clone();
     

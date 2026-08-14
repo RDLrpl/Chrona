@@ -1,5 +1,6 @@
-use std::{sync::Arc, time::Duration};
+use std::{cell::RefCell, rc::Rc, sync::Arc, time::Duration};
 
+use chrona_api::aev::aev::CHAPI;
 use chrona_utils::data::AppConfiguration;
 use chrona_vk::{pipelines::vertexshader::CameraUBO, vkinit::{devices::GpuDevices, framecontext::FrameContext, pipeline::Executor, render::Render}};
 use chrona_world::engine::layout::world::world::World;
@@ -102,7 +103,7 @@ impl Engine {
         state.executor.viewport.extent = [extent[0] as f32, extent[1] as f32];
     }
 
-    pub fn render(&mut self, world: &mut World, app_data: &GameData) {
+    pub fn render(&mut self, world_link: &Rc<RefCell<World>>, app_data: &GameData, api: &CHAPI) {
         if self.sft.sgr {
             self.sft.sgr = false;
 
@@ -188,9 +189,12 @@ impl Engine {
                 state.framecontext.camera_descriptors[frame_idx].clone(),
             ).unwrap();
         
-        (app_data.gamefuncs.on_frame_update)(world);
+        let scene = {
+            let world = world_link.borrow();
+            world.return_cur_scene().expect("...").clone()
+        };
 
-        let scene = world.return_cur_scene().expect(format!("[CHRONA]: NO_SCENE[{}]'panic", world.curscene).as_str());
+        (app_data.gamefuncs.on_frame_update)(Rc::clone(&world_link), api);
 
         state.executor.draw(&mut builder, &scene, &state.framecontext);
 

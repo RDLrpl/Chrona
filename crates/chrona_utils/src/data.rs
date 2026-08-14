@@ -23,17 +23,28 @@ pub struct AppConfiguration {
     pub projname: String,
 
     pub device_extensions: DeviceExtensions,
+
+    pub max_framerate: usize,
 }
 
 impl AppConfiguration {
-    pub fn new(projname: &str, app_version: [u32; 3], width: u32, height: u32, fullscreen: bool, device_extensions: DeviceExtensions) -> Self {
+    pub fn new(
+        projname: &str, 
+        app_version: [u32; 3], 
+        width: u32, 
+        height: u32, 
+        fullscreen: bool, 
+        device_extensions: DeviceExtensions,
+        max_framerate: usize,
+    ) -> Self {
         Self {
             projname: projname.to_string(),
             app_version,
             width,
             height,
             fullscreen,
-            device_extensions
+            device_extensions,
+            max_framerate
         }
     }
 }

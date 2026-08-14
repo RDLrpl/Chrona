@@ -6,3 +6,5 @@ edition = "2024"
 [dependencies]
 chrona_vk = { path = "../chrona_vk" }
 chrona_world = { path = "../chrona_world" }
+
+winit = "0.30.13"

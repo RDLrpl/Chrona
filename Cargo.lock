@@ -351,12 +351,14 @@ version = "0.1.0"
 dependencies = [
  "chrona_vk",
  "chrona_world",
+ "winit",
 ]
 
 [[package]]
 name = "chrona_app"
 version = "0.0.1"
 dependencies = [
+ "chrona_api",
  "chrona_engine",
  "chrona_utils",
  "chrona_vk",
@@ -370,6 +372,7 @@ dependencies = [
 name = "chrona_engine"
 version = "0.1.0"
 dependencies = [
+ "chrona_api",
  "chrona_utils",
  "chrona_vk",
  "chrona_world",

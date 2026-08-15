@@ -4,14 +4,14 @@ use std::{cell::RefCell, rc::Rc};
 
 use chrona_api::aev::aev::CHAPI;
 use chrona_utils::data::WorldData;
-use chrona_world::engine::layout::world::world::World;
+use chrona_world::engine::{camera::camera::Camera, layout::world::world::World};
 
 pub struct GameFunc {
-    pub on_frame_update: fn(world_link: Rc<RefCell<World>>, &CHAPI),
+    pub on_frame_update: fn(world_link: Rc<RefCell<World>>, &CHAPI, &mut Camera),
 }
 
 impl GameFunc {
-    pub fn load(on_frame_update: fn(Rc<RefCell<World>>, &CHAPI)) -> Self {
+    pub fn load(on_frame_update: fn(Rc<RefCell<World>>, &CHAPI, &mut Camera)) -> Self {
         Self {
             on_frame_update
         }

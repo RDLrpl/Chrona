@@ -6,7 +6,7 @@ use winit::{event::ElementState, keyboard::{KeyCode, ModifiersState, PhysicalKey
 pub struct CHAPI {
     pub delta_time: f32,
     
-    pub keyboard_handler: KEYBOARD,
+    pub keyboard_handler: KEYBOARD
 }
 
 pub struct KEYBOARD {

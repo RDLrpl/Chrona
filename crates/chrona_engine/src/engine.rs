@@ -3,7 +3,7 @@ use std::{cell::RefCell, rc::Rc, sync::Arc, time::Duration};
 use chrona_api::aev::aev::CHAPI;
 use chrona_utils::data::AppConfiguration;
 use chrona_vk::{pipelines::vertexshader::CameraUBO, vkinit::{devices::GpuDevices, framecontext::FrameContext, pipeline::Executor, render::Render}};
-use chrona_world::engine::layout::world::world::World;
+use chrona_world::engine::{camera::camera::Camera, layout::world::world::World};
 use glam::{Mat4, Vec3};
 use vulkano::{Version, sync::GpuFuture, VulkanLibrary, command_buffer::{AutoCommandBufferBuilder, CommandBufferUsage, RenderPassBeginInfo, SubpassBeginInfo, SubpassContents}, instance::{Instance, InstanceCreateFlags, InstanceCreateInfo}, pipeline::{Pipeline, PipelineBindPoint, graphics::viewport::Viewport}, swapchain::{self, Surface, SwapchainPresentInfo}};
 use winit::window::Window;
@@ -19,6 +19,8 @@ pub struct EngineSFT {
 pub struct Engine {
     pub window: Arc<Window>,
     pub appstate: AppState,
+
+    pub camera: Camera,
 
     pub sft: EngineSFT,
     pub mousepos: [f64; 2],
@@ -73,6 +75,8 @@ impl Engine {
         // framecontext:
         let framecontext = FrameContext::init(gpudevices.clone(), render.clone(), executor.pipeline.layout().clone());
 
+        let camera = Camera::init(5.0);
+
         Self {
             window,
             appstate: AppState { 
@@ -84,6 +88,7 @@ impl Engine {
             },
             mousepos: [0.0, 0.0],
             sft: EngineSFT::new(),
+            camera,
         }
     }
 
@@ -144,13 +149,18 @@ impl Engine {
         }
 
         let aspect = extent[0] as f32 / extent[1] as f32;
+        
+        let camera = &mut self.camera;
 
-        let view = Mat4::look_at_rh(Vec3::new(0.0, 1.0, 2.4), Vec3::ZERO, Vec3::Y);
+        let eye: Vec3 = Vec3::from(camera.eye);
+        let target: Vec3 = Vec3::from(camera.target());
+
+        let view = Mat4::look_at_rh(eye, target, Vec3::Y);
+
         let mut proj = Mat4::perspective_rh(60_f32.to_radians(), aspect, 0.1, 100.0);
         proj.y_axis.y *= -1.0;
 
         let ubo = CameraUBO {
-            model: Mat4::IDENTITY.to_cols_array_2d(),
             view:  view.to_cols_array_2d(),
             proj:  proj.to_cols_array_2d(),
         };
@@ -194,7 +204,7 @@ impl Engine {
             world.return_cur_scene().expect("...").clone()
         };
 
-        (app_data.gamefuncs.on_frame_update)(Rc::clone(&world_link), api);
+        (app_data.gamefuncs.on_frame_update)(Rc::clone(&world_link), api, camera);
 
         state.executor.draw(&mut builder, &scene, &state.framecontext);
 

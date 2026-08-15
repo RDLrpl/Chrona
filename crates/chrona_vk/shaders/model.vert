@@ -8,7 +8,6 @@ layout(location = 0) out vec2 f_uv;
 layout(location = 1) out vec3 f_color;
 
 layout(set = 0, binding = 0) uniform CameraUBO {
-    mat4 model;
     mat4 view;
     mat4 proj;
 } ubo;
@@ -18,7 +17,7 @@ layout(push_constant) uniform PushConstants {
 } tr;
 
 void main() {
-    gl_Position = ubo.proj * ubo.view * ubo.model * tr.model * vec4(vecposition, 1.0);
+    gl_Position = ubo.proj * ubo.view * tr.model * vec4(vecposition, 1.0);
     f_uv = uv;
     f_color = color; 
 }

@@ -29,7 +29,7 @@ fn main() {
     // Models
     let models_scene_one = vec![
         // path, position, rotation, scale
-        ModelData::init(1, "assets/monkey_with_texture/monkey.obj".to_string(), [1.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.1, 0.1, 0.1]),
+        ModelData::init(1, "assets/monkey_with_texture/monkey.obj".to_string(), [1.5, 0.0, 0.0], [0.0, 0.0, 0.0], [1.0, 1.0, 1.0]),
         ModelData::init(2, "assets/greenmonkey/monkey.obj".to_string(), [-1.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.5, 0.5, 0.5]),
     ];
 

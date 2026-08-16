@@ -6,13 +6,12 @@ use chrona_vk::{pipelines::vertexshader::CameraUBO, vkinit::{devices::GpuDevices
 use chrona_world::engine::{camera::camera::Camera, layout::world::world::World};
 use glam::{Mat4, Vec3};
 use vulkano::{Version, sync::GpuFuture, VulkanLibrary, command_buffer::{AutoCommandBufferBuilder, CommandBufferUsage, RenderPassBeginInfo, SubpassBeginInfo, SubpassContents}, instance::{Instance, InstanceCreateFlags, InstanceCreateInfo}, pipeline::{Pipeline, PipelineBindPoint, graphics::viewport::Viewport}, swapchain::{self, Surface, SwapchainPresentInfo}};
-use winit::window::Window;
+use winit::window::{CursorGrabMode, Window};
 
 use crate::{eab::eab::GameData, graphics::state::AppState};
 
 pub struct EngineSFT {
-    pub sgr: bool,
-    
+    pub ffrun_flag: bool,
     pub pending_resize: Option<(u32, u32)>,
 }
 
@@ -29,8 +28,8 @@ pub struct Engine {
 impl EngineSFT {
     pub fn new() -> Self {
         Self {
-            sgr: false,
             pending_resize: None,
+            ffrun_flag: false,
         }
     }
 }
@@ -75,7 +74,7 @@ impl Engine {
         // framecontext:
         let framecontext = FrameContext::init(gpudevices.clone(), render.clone(), executor.pipeline.layout().clone());
 
-        let camera = Camera::init(5.0);
+        let camera = Camera::init(Vec3::new(0.0, 0.0, 3.0));
 
         Self {
             window,
@@ -107,14 +106,24 @@ impl Engine {
 
         state.executor.viewport.extent = [extent[0] as f32, extent[1] as f32];
     }
+ 
+    pub fn focused(&mut self, chapi: &mut CHAPI) {
+        // TODO: GOOD CURSOR SYSTEM
+        
+        self.window.set_cursor_visible(false);
 
-    pub fn render(&mut self, world_link: &Rc<RefCell<World>>, app_data: &GameData, api: &CHAPI) {
-        if self.sft.sgr {
-            self.sft.sgr = false;
-
-            return;
+        if let Err(_) = self.window.set_cursor_grab(CursorGrabMode::Locked) {
+            if !self.sft.ffrun_flag { 
+                println!("[CHRONA]: LOCKED GRAB MODE is not support. Using: Confined");
+                self.sft.ffrun_flag = true;
+            }
+                    
+            let _ = self.window.set_cursor_grab(CursorGrabMode::Confined);
         }
 
+        chapi.mouse_handler.grabbed = true;
+    }
+    pub fn render(&mut self, world_link: &Rc<RefCell<World>>, app_data: &GameData, api: &CHAPI) {
         if let Some((w, h)) = self.sft.pending_resize.take() {
             self.resize(w, h);
         }
@@ -122,8 +131,6 @@ impl Engine {
         let window = self.window.clone();
         let state = &mut self.appstate;
         let extent: [u32; 2] = window.inner_size().into();
-        
-        // state.framecontext.frame_fences[frame_idx].as_mut().unwrap().cleanup_finished();
 
         let (image_index, suboptimal, acquire_future) = match swapchain::acquire_next_image(
             state.render.swapchain.clone(),  
@@ -152,10 +159,9 @@ impl Engine {
         
         let camera = &mut self.camera;
 
-        let eye: Vec3 = Vec3::from(camera.eye);
-        let target: Vec3 = Vec3::from(camera.target());
+        let eye: Vec3 = camera.eye;
 
-        let view = Mat4::look_at_rh(eye, target, Vec3::Y);
+        let view = Mat4::look_at_rh(eye, camera.target(), camera.vectors.up_vec);
 
         let mut proj = Mat4::perspective_rh(60_f32.to_radians(), aspect, 0.1, 100.0);
         proj.y_axis.y *= -1.0;

@@ -1,74 +1,73 @@
+use glam::{Quat, Vec3};
+
 pub struct Camera {
-    pub yaw: f32,
+    pub orientation: Quat,
+
+    pub vectors: Vectors,
+    pub eye: Vec3,
+
+    pub yaw: f32, 
     pub pitch: f32,
 
-    pub forward: [f32; 3],
-    pub eye: [f32; 3],
+}
 
-    pub radius: f32,
+pub struct Vectors {
+    pub look_vec: Vec3,
+    pub up_vec: Vec3,
+    pub side_vec: Vec3,
+}
+
+impl Vectors {
+    pub fn rvlook(&self) -> Vec3 { -self.look_vec }
+    pub fn rvup(&self) -> Vec3 { -self.up_vec }
+    pub fn rvside(&self) -> Vec3 { -self.side_vec }
 }
 
 impl Camera {
-    pub fn init(radius: f32) -> Self {
-        let yaw: f32 = 0_f32.to_radians();
-        let pitch: f32 = 0.0;
-        let forward = [
-            pitch.cos() * yaw.cos(), // X
-            pitch.sin(), // Y
-            pitch.cos() * yaw.sin(), // Z
-        ];
-
-        let eye: [f32; 3] = [radius * yaw.cos(), 0.0, radius * yaw.sin()];
-        
+    pub fn init(eye: Vec3) -> Self {
+        let orientation = Quat::IDENTITY;
 
         Self {
-            yaw,
-            pitch,
-            forward,
+            orientation,
+            vectors: Vectors {
+                look_vec: orientation * Vec3::new(0.0, 0.0, -1.0),
+
+                up_vec: orientation * Vec3::new(0.0, 1.0, 0.0),
+
+                side_vec: orientation * Vec3::new(1.0, 0.0, 0.0),
+            },
             eye,
-            radius
+            yaw: 0.0,
+            pitch: 0.0,
         }
     }
 
-
-    pub fn vector_move(&mut self, w: f32) {
-        self.eye[0] -= self.forward[0] * w;
-        self.eye[1] -= self.forward[1] * w;
-        self.eye[2] -= self.forward[2] * w;
-
-        self.radius_update()
-    }
-
-    pub fn rotate(&mut self, xy: [f32; 2]) {
-        self.pitch += xy[1];
-        self.yaw   += xy[0];
+    pub fn crotate(&mut self, yaw: f32, pitch: f32) {
+        self.yaw += yaw;
+        self.pitch += pitch;
 
         self.pitch = self.pitch.clamp(-1.5, 1.5);
 
-        self.eye[0] = self.radius * self.pitch.cos() * self.yaw.cos();
-        self.eye[1] = self.radius * self.pitch.sin();
-        self.eye[2] = self.radius * self.pitch.cos() * self.yaw.sin();
+        let q_yaw = Quat::from_axis_angle(Vec3::Y, self.yaw);
+        let q_pitch = Quat::from_axis_angle(Vec3::X, self.pitch);
 
-        self.forward_update();
+        self.orientation = q_yaw * q_pitch;
+        self.update();
     }
 
-    fn forward_update(&mut self) {
-        self.forward = [
-            self.pitch.cos() * self.yaw.cos(),
-            self.pitch.sin(),
-            self.pitch.cos() * self.yaw.sin(),
-        ];
+    pub fn cmove(&mut self, direction: Vec3, to_move: f32) {
+        self.eye += direction * to_move;
     }
 
-    fn radius_update(&mut self) {
-       self.radius = (self.eye[0].powi(2) + self.eye[1].powi(2) + self.eye[2].powi(2)).sqrt();
+    pub fn target(&self) -> Vec3 {
+        self.eye + self.vectors.look_vec
     }
 
-    pub fn target(&self) -> [f32; 3] {
-        [
-            0.0, 
-            0.0, 
-            0.0, 
-        ]
+    fn update(&mut self) {
+        self.vectors.look_vec = self.orientation * Vec3::new(0.0, 0.0, -1.0);
+
+        self.vectors.up_vec = self.orientation * Vec3::new(0.0, 1.0, 0.0);
+
+        self.vectors.side_vec = self.orientation * Vec3::new(1.0, 0.0, 0.0);
     }
 }

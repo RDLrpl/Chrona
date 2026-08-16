@@ -4,7 +4,7 @@ use chrona_api::aev::aev::CHAPI;
 use chrona_engine::{eab::eab::GameData, engine::Engine};
 use chrona_utils::data::AppConfiguration;
 use chrona_world::engine::layout::{loadout::obj::{Model, Transform}, world::world::{Scene, World}};
-use winit::{application::ApplicationHandler, event::WindowEvent, window::Window};
+use winit::{application::ApplicationHandler, event::{DeviceEvent, WindowEvent}, window::{Window}};
 
 
 
@@ -44,7 +44,7 @@ impl ApplicationHandler for App {
             ))
         ).unwrap());
         
-        let engine = Engine::init(self.app_config.clone(), window, event_loop);
+        let engine = Engine::init(self.app_config.clone(), window.clone(), event_loop);
         
         // World>
         let mut scenes = vec![];
@@ -100,6 +100,21 @@ impl ApplicationHandler for App {
         }
     }
 
+    fn device_event(
+        &mut self,
+        _event_loop: &winit::event_loop::ActiveEventLoop,
+        _device_id: winit::event::DeviceId,
+        event: winit::event::DeviceEvent,
+    )
+    {
+        match event {
+            DeviceEvent::MouseMotion { delta } => {
+                self.chapi.mouse_handler.update_moution(delta);
+            }
+            _ => {}
+        }
+    }
+
     fn window_event(
             &mut self,
             event_loop: &winit::event_loop::ActiveEventLoop,
@@ -108,6 +123,12 @@ impl ApplicationHandler for App {
         ) {
         match event {
             WindowEvent::CloseRequested => event_loop.exit(),
+
+            WindowEvent::Focused(..)=> {
+                let engine = self.engine.as_mut().unwrap();
+
+                engine.focused(&mut self.chapi);
+            }
 
             WindowEvent::KeyboardInput { event, .. } => {
                 self.chapi.keyboard_handler.update_key(event.physical_key, event.state);
@@ -128,6 +149,12 @@ impl ApplicationHandler for App {
                 let engine = self.engine.as_mut().unwrap();
 
                 engine.render(world_link, &self.app_data, &self.chapi);
+
+                self.chapi.mouse_handler.update();
+            }
+
+            WindowEvent::CursorMoved { position, .. } => {
+                self.chapi.mouse_handler.update_pos(position);
             }
 
             _ => ()

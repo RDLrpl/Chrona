@@ -1,13 +1,17 @@
 use std::{cell::RefCell, rc::Rc};
 
-use chrona_api::{aev::aev::CHAPI};
+use chrona_api::{aev::aev::CHAPI, models::transform::get_object};
 use chrona_world::engine::{camera::camera::Camera, layout::world::world::World};
 use winit::keyboard::KeyCode;
 
-pub fn on_frame_update(_world_link: Rc<RefCell<World>>, api: &CHAPI, camera: &mut Camera) {
+pub fn on_frame_update(world_link: Rc<RefCell<World>>, api: &CHAPI, camera: &mut Camera) {
     let dt = api.delta_time;
     let mut ms = 2.5 * dt;
     let mut sense = 3.0 * dt;
+    
+    let target = get_object(world_link, 1);
+
+    target.rotate_object([1.2 * dt, 1.4 * dt, 0.0]);
     
     if api.keyboard_handler.modifiers.shift_key() {
         ms *= 2.5;

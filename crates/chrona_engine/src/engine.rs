@@ -5,13 +5,17 @@ use chrona_utils::data::AppConfiguration;
 use chrona_vk::{pipelines::vertexshader::CameraUBO, vkinit::{devices::GpuDevices, framecontext::FrameContext, pipeline::Executor, render::Render}};
 use chrona_world::engine::{camera::camera::Camera, layout::world::world::World};
 use glam::{Mat4, Vec3};
+use log_once::info_once;
+use tracing::{trace, warn};
 use vulkano::{Version, sync::GpuFuture, VulkanLibrary, command_buffer::{AutoCommandBufferBuilder, CommandBufferUsage, RenderPassBeginInfo, SubpassBeginInfo, SubpassContents}, instance::{Instance, InstanceCreateFlags, InstanceCreateInfo}, pipeline::{Pipeline, PipelineBindPoint, graphics::viewport::Viewport}, swapchain::{self, Surface, SwapchainPresentInfo}};
 use winit::window::{CursorGrabMode, Window};
 
 use crate::{eab::eab::GameData, graphics::state::AppState};
 
 pub struct EngineSFT {
-    pub ffrun_flag: bool,
+    pub nscre_flag: bool, // Need Swapchain Recreate
+
+
     pub pending_resize: Option<(u32, u32)>,
 }
 
@@ -29,10 +33,11 @@ impl EngineSFT {
     pub fn new() -> Self {
         Self {
             pending_resize: None,
-            ffrun_flag: false,
+            nscre_flag: false,
         }
     }
 }
+
 impl Engine {
     pub fn init(
         app_configuration: AppConfiguration, 
@@ -61,10 +66,12 @@ impl Engine {
         // Render:
         let render = Render::init(vk_instance.clone(), gpudevices.clone(), window.clone());
 
+        let cur_window_size = window.inner_size();
+
         // viewport:
         let viewport = Viewport {
             offset: [0.0, 0.0],
-            extent: [app_configuration.width as f32, app_configuration.height as f32],
+            extent: [cur_window_size.width as f32, cur_window_size.height as f32],
             depth_range: 0.0..=1.0,
         };
 
@@ -92,17 +99,16 @@ impl Engine {
     }
 
     fn resize(&mut self, width: u32, height: u32) {
-        let window = self.window.clone();
         let state = &mut self.appstate;
-
-        let gpudevices = state.gpudevices.clone();
         let extent: [u32; 2] = [width, height];
 
-        state.render.recreate_swapchain(&gpudevices, window);
+        self.sft.nscre_flag = true;
 
         for fence in state.framecontext.frame_fences.iter_mut() {
             *fence = None;
         }
+
+        trace!("Resizing: {width} {height}");
 
         state.executor.viewport.extent = [extent[0] as f32, extent[1] as f32];
     }
@@ -113,10 +119,7 @@ impl Engine {
         self.window.set_cursor_visible(false);
 
         if let Err(_) = self.window.set_cursor_grab(CursorGrabMode::Locked) {
-            if !self.sft.ffrun_flag { 
-                println!("[CHRONA]: LOCKED GRAB MODE is not support. Using: Confined");
-                self.sft.ffrun_flag = true;
-            }
+            info_once!("LOCKED GRAB MODE is not support. Using: Confined");
                     
             let _ = self.window.set_cursor_grab(CursorGrabMode::Confined);
         }
@@ -126,6 +129,11 @@ impl Engine {
     pub fn render(&mut self, world_link: &Rc<RefCell<World>>, app_data: &GameData, api: &CHAPI) {
         if let Some((w, h)) = self.sft.pending_resize.take() {
             self.resize(w, h);
+        }
+
+        if self.sft.nscre_flag {
+            self.appstate.render.recreate_swapchain(&self.appstate.gpudevices, self.window.clone());
+            self.sft.nscre_flag = false;
         }
 
         let window = self.window.clone();
@@ -138,8 +146,7 @@ impl Engine {
         ) {
             Ok(r) => r,
             Err(_e) => {
-                let gpudevices = state.gpudevices.clone();
-                state.render.recreate_swapchain(&gpudevices, window);
+                self.sft.nscre_flag = true;
 
                 for fence in state.framecontext.frame_fences.iter_mut() {
                     *fence = None;
@@ -158,6 +165,8 @@ impl Engine {
         let aspect = extent[0] as f32 / extent[1] as f32;
         
         let camera = &mut self.camera;
+
+        (app_data.gamefuncs.on_frame_update)(Rc::clone(&world_link), api, camera);
 
         let eye: Vec3 = camera.eye;
 
@@ -207,10 +216,8 @@ impl Engine {
         
         let scene = {
             let world = world_link.borrow();
-            world.return_cur_scene().expect("...").clone()
+            world.return_cur_scene().clone()
         };
-
-        (app_data.gamefuncs.on_frame_update)(Rc::clone(&world_link), api, camera);
 
         state.executor.draw(&mut builder, &scene, &state.framecontext);
 
@@ -233,19 +240,18 @@ impl Engine {
                 state.framecontext.frame_fences[frame_idx] = Some(f);
             }
             Err(vulkano::Validated::Error(vulkano::VulkanError::OutOfDate)) => {
-                let gpudevices = state.gpudevices.clone();
-                state.render.recreate_swapchain(&gpudevices, window.clone());
+                self.sft.nscre_flag = true;
+
                 state.framecontext.frame_fences[frame_idx] = None;
             }
             Err(e) => {
-                println!("[CHRONA]: flush'warn>: {e:?}'");
+                warn!("[CHRONA]: flush'warn>: {e:?}'");
                 state.framecontext.frame_fences[frame_idx] = None;
             }
         }
 
         if suboptimal {
-            let gpudevices = state.gpudevices.clone();
-            state.render.recreate_swapchain(&gpudevices, window.clone());
+            self.sft.nscre_flag = true;
         }
     }
 

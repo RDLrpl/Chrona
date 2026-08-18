@@ -12,6 +12,7 @@ chrona_utils = { path = "../chrona_utils" }
 chrona_engine = { path = "../chrona_engine" }
 chrona_world = { path = "../chrona_world" }
 chrona_api = { path = "../chrona_api" }
+tracing = "0.1.44"
 
 glam = "0.32.1"
 

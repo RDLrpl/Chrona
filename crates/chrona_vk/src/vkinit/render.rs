@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use tracing::info;
 use vulkano::{format::Format, image::{Image, ImageCreateInfo, ImageType, ImageUsage, view::ImageView}, instance::Instance, memory::allocator::{AllocationCreateInfo, StandardMemoryAllocator}, render_pass::{Framebuffer, FramebufferCreateInfo, RenderPass}, swapchain::{Surface, Swapchain, SwapchainCreateInfo}};
 use winit::window::Window;
 
@@ -96,6 +97,8 @@ impl Render {
                 },
             ).unwrap()
         }).collect::<Vec<_>>();
+
+        info!("VK render initialization completed successfully");
 
         Self {
             surface,

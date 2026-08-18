@@ -7,7 +7,7 @@ use winit::keyboard::KeyCode;
 pub fn on_frame_update(world_link: Rc<RefCell<World>>, api: &CHAPI, camera: &mut Camera) {
     let dt = api.delta_time;
     let mut ms = 2.5 * dt;
-    let mut sense = 3.0 * dt;
+    let mut sense = 0.0008;
     
     let target = get_object(world_link, 1);
 
@@ -31,7 +31,7 @@ pub fn on_frame_update(world_link: Rc<RefCell<World>>, api: &CHAPI, camera: &mut
     }
 
     if api.keyboard_handler.modifiers.control_key() {
-        sense *= 1.5;
+        sense *= 0.6;
     }
     
     camera.crotate(-(api.mouse_handler.delta_x * sense), -(api.mouse_handler.delta_y * sense));

@@ -1,3 +1,7 @@
+use std::u32;
+
+use log_once::warn_once;
+
 use crate::engine::layout::loadout::obj::{Model};
 
 #[derive(Clone)]
@@ -12,6 +16,11 @@ pub struct Scene {
     pub models: Vec<Model>,
 }
 
+static NOSCENE: Scene = Scene {
+    id: u32::MAX,
+    models: Vec::new(),
+};
+
 impl World {
     pub fn make(scenes: Vec<Scene>) -> Self {
         Self {
@@ -20,10 +29,15 @@ impl World {
         }
     }
 
-    pub fn return_cur_scene(&self) -> Option<&Scene> {
+    pub fn return_cur_scene(&self) -> &Scene {
         let target_id = self.curscene; 
 
-        self.scenes.iter().find(|s| s.id == target_id)
+        if let Some(scene) = self.scenes.iter().find(|s| s.id == target_id) {
+            scene
+        } else {
+            warn_once!("Using empty scene: no available scenes found.");
+            &NOSCENE
+        }
     }
 
     pub fn return_mutcur_scene(&mut self) -> Option<&mut Scene> {

@@ -10,6 +10,7 @@ winit = "0.30.13"
 tobj = "4.0.3"
 glam = "0.32.1"
 image = "0.25.10"
+tracing = "0.1.44"
 
 chrona_utils = { path = "../chrona_utils" }
 chrona_world = { path = "../chrona_world" }

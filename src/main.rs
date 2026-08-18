@@ -2,13 +2,16 @@ use chrona_app::{app::App};
 use chrona_engine::eab::eab::{GameData, GameFunc};
 use vulkano::device::DeviceExtensions;
 use winit::event_loop::{ControlFlow, EventLoop};
-use chrona_utils::data::{AppConfiguration, ModelData, SceneData, WorldData};
+use chrona_utils::{data::{AppConfiguration, ModelData, SceneData, WorldData}, logs::logger::{LoggerConfig, LoggerEngine}};
 
 mod game;
 
 fn main() {
     let event_loop = EventLoop::builder().build().unwrap();
 
+    //Logger engine. A vital initialization step that enables console logs and saves crash logs.
+    let logger = LoggerEngine::init(LoggerConfig::default());
+    
     let device_extensions: DeviceExtensions = DeviceExtensions {
         khr_swapchain: true,
         ..DeviceExtensions::empty()
@@ -22,7 +25,7 @@ fn main() {
 
         device_extensions,
     
-        0, // 0 - unlimited
+        60, // 0 - unlimited
     );
     // AppData>>
 
@@ -57,5 +60,7 @@ fn main() {
     let mut app = App::new(appconfig, app_data);
 
     event_loop.set_control_flow(ControlFlow::Poll);
-    event_loop.run_app(&mut app).expect("[CHRONA]: loop'panic>");
+    event_loop.run_app(&mut app).expect("loop ' panic");
+
+    drop(logger);
 }

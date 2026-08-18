@@ -2,8 +2,9 @@ use std::{cell::RefCell, rc::Rc, sync::Arc, time::Instant};
 
 use chrona_api::aev::aev::CHAPI;
 use chrona_engine::{eab::eab::GameData, engine::Engine};
-use chrona_utils::data::AppConfiguration;
+use chrona_utils::{data::AppConfiguration};
 use chrona_world::engine::layout::{loadout::obj::{Model, Transform}, world::world::{Scene, World}};
+use tracing::info;
 use winit::{application::ApplicationHandler, event::{DeviceEvent, WindowEvent}, window::{Window}};
 
 
@@ -78,7 +79,7 @@ impl ApplicationHandler for App {
         self.engine = Some(engine);
         
         // Engine Init END<<
-        println!("[CHRONA]: GPU [{}] is using for render!'LOG", self.engine.as_ref().unwrap().gpu_for_render());
+        info!("[{}] is using for render", self.engine.as_ref().unwrap().gpu_for_render());
     }
 
     fn about_to_wait(&mut self, _event_loop: &winit::event_loop::ActiveEventLoop) {
@@ -122,7 +123,9 @@ impl ApplicationHandler for App {
             event: winit::event::WindowEvent,
         ) {
         match event {
-            WindowEvent::CloseRequested => event_loop.exit(),
+            WindowEvent::CloseRequested => {
+                event_loop.exit()
+            },
 
             WindowEvent::Focused(..)=> {
                 let engine = self.engine.as_mut().unwrap();

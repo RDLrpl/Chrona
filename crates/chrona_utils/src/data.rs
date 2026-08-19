@@ -25,6 +25,7 @@ pub struct AppConfiguration {
     pub device_extensions: DeviceExtensions,
 
     pub max_framerate: usize,
+    pub vsync: bool,
 }
 
 impl AppConfiguration {
@@ -36,6 +37,7 @@ impl AppConfiguration {
         fullscreen: bool, 
         device_extensions: DeviceExtensions,
         max_framerate: usize,
+        vsync: bool
     ) -> Self {
         Self {
             projname: projname.to_string(),
@@ -44,7 +46,8 @@ impl AppConfiguration {
             height,
             fullscreen,
             device_extensions,
-            max_framerate
+            max_framerate,
+            vsync
         }
     }
 }
@@ -73,7 +76,8 @@ pub struct TransformDat {
 pub struct ModelData {
     pub id: u32,
     pub path: String,
-    pub transform: TransformDat
+    
+    pub transform: TransformDat,
 }
 
 impl WorldData {

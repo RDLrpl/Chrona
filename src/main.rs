@@ -25,7 +25,8 @@ fn main() {
 
         device_extensions,
     
-        60, // 0 - unlimited
+        0, // 0 - unlimited
+        true, // VSync
     );
     // AppData>>
 

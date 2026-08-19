@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use vulkano::{buffer::{BufferUsage, Subbuffer, allocator::{SubbufferAllocator, SubbufferAllocatorCreateInfo}}, descriptor_set::{DescriptorSet, WriteDescriptorSet, allocator::{DescriptorSetAllocator, StandardDescriptorSetAllocator}}, memory::allocator::MemoryTypeFilter, pipeline::PipelineLayout, sync::{GpuFuture, future::FenceSignalFuture}};
 
-use crate::{pipelines::vertexshader::CameraUBO, vkinit::{devices::GpuDevices, render::Render}};
+use crate::{pipelines::vertexshader::CameraUBO, render::{devices::GpuDevices, render::Render}};
 
 
 pub struct FrameContext {

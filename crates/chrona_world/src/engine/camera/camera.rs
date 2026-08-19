@@ -9,6 +9,9 @@ pub struct Camera {
     pub yaw: f32, 
     pub pitch: f32,
 
+    pub znear: f32,
+    pub zfar: f32,
+
 }
 
 pub struct Vectors {
@@ -24,7 +27,7 @@ impl Vectors {
 }
 
 impl Camera {
-    pub fn init(eye: Vec3) -> Self {
+    pub fn init(eye: Vec3, znear: f32, zfar: f32) -> Self {
         let orientation = Quat::IDENTITY;
 
         Self {
@@ -39,6 +42,8 @@ impl Camera {
             eye,
             yaw: 0.0,
             pitch: 0.0,
+            znear,
+            zfar
         }
     }
 

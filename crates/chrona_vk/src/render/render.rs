@@ -4,7 +4,7 @@ use tracing::info;
 use vulkano::{format::Format, image::{Image, ImageCreateInfo, ImageType, ImageUsage, view::ImageView}, instance::Instance, memory::allocator::{AllocationCreateInfo, StandardMemoryAllocator}, render_pass::{Framebuffer, FramebufferCreateInfo, RenderPass}, swapchain::{Surface, Swapchain, SwapchainCreateInfo}};
 use winit::window::Window;
 
-use crate::vkinit::devices::GpuDevices;
+use crate::render::devices::GpuDevices;
 
 #[derive(Clone)]
 pub struct Render {
@@ -20,7 +20,7 @@ pub struct Render {
 }
 
 impl Render {
-    pub fn init(vk_instance: Arc<Instance>, gpudevices: GpuDevices, window: Arc<Window>) -> Self {
+    pub fn init(vsync: bool, vk_instance: Arc<Instance>, gpudevices: GpuDevices, window: Arc<Window>) -> Self {
         let surface = Surface::from_window(vk_instance, window.clone()).expect("[CHRONA]: Surface'panic>");
 
         let surface_capabilities = gpudevices.physical_device
@@ -40,7 +40,7 @@ impl Render {
                 image_extent: window.inner_size().into(),
                 image_usage: ImageUsage::COLOR_ATTACHMENT,
                 composite_alpha: surface_capabilities.supported_composite_alpha.into_iter().next().unwrap(),
-                present_mode: vulkano::swapchain::PresentMode::Immediate,
+                present_mode: if vsync { vulkano::swapchain::PresentMode::Fifo } else { vulkano::swapchain::PresentMode::Immediate },
                 ..Default::default()
             },
         ).unwrap();

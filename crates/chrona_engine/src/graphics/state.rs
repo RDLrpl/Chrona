@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use chrona_vk::vkinit::{devices::GpuDevices, framecontext::FrameContext, pipeline::Executor, render::Render};
+use chrona_vk::render::{devices::GpuDevices, framecontext::FrameContext, pipeline::Executor, render::Render};
 use vulkano::instance::Instance;
 
 pub struct AppState {

@@ -2,7 +2,7 @@ use std::{cell::RefCell, rc::Rc, sync::Arc, time::Duration};
 
 use chrona_api::aev::aev::CHAPI;
 use chrona_utils::data::AppConfiguration;
-use chrona_vk::{pipelines::vertexshader::CameraUBO, vkinit::{devices::GpuDevices, framecontext::FrameContext, pipeline::Executor, render::Render}};
+use chrona_vk::{pipelines::vertexshader::CameraUBO, render::{devices::GpuDevices, framecontext::FrameContext, pipeline::Executor, render::Render}};
 use chrona_world::engine::{camera::camera::Camera, layout::world::world::World};
 use glam::{Mat4, Vec3};
 use log_once::info_once;
@@ -14,7 +14,7 @@ use crate::{eab::eab::GameData, graphics::state::AppState};
 
 pub struct EngineSFT {
     pub nscre_flag: bool, // Need Swapchain Recreate
-
+    pub clusters_dirty: bool, 
 
     pub pending_resize: Option<(u32, u32)>,
 }
@@ -34,6 +34,7 @@ impl EngineSFT {
         Self {
             pending_resize: None,
             nscre_flag: false,
+            clusters_dirty: false
         }
     }
 }
@@ -64,7 +65,7 @@ impl Engine {
         // GPU Devices
         let gpudevices = GpuDevices::init(vk_instance.clone(), app_configuration.device_extensions);
         // Render:
-        let render = Render::init(vk_instance.clone(), gpudevices.clone(), window.clone());
+        let render = Render::init(app_configuration.vsync, vk_instance.clone(), gpudevices.clone(), window.clone());
 
         let cur_window_size = window.inner_size();
 
@@ -81,7 +82,7 @@ impl Engine {
         // framecontext:
         let framecontext = FrameContext::init(gpudevices.clone(), render.clone(), executor.pipeline.layout().clone());
 
-        let camera = Camera::init(Vec3::new(0.0, 0.0, 3.0));
+        let camera = Camera::init(Vec3::new(0.0, 0.0, 3.0), 0.1, 100.0);
 
         Self {
             window,
@@ -103,6 +104,7 @@ impl Engine {
         let extent: [u32; 2] = [width, height];
 
         self.sft.nscre_flag = true;
+        self.sft.clusters_dirty = true;
 
         for fence in state.framecontext.frame_fences.iter_mut() {
             *fence = None;
@@ -147,6 +149,7 @@ impl Engine {
             Ok(r) => r,
             Err(_e) => {
                 self.sft.nscre_flag = true;
+                self.sft.clusters_dirty = true;
 
                 for fence in state.framecontext.frame_fences.iter_mut() {
                     *fence = None;
@@ -172,7 +175,7 @@ impl Engine {
 
         let view = Mat4::look_at_rh(eye, camera.target(), camera.vectors.up_vec);
 
-        let mut proj = Mat4::perspective_rh(60_f32.to_radians(), aspect, 0.1, 100.0);
+        let mut proj = Mat4::perspective_rh(60_f32.to_radians(), aspect, camera.znear, camera.zfar);
         proj.y_axis.y *= -1.0;
 
         let ubo = CameraUBO {
@@ -241,6 +244,7 @@ impl Engine {
             }
             Err(vulkano::Validated::Error(vulkano::VulkanError::OutOfDate)) => {
                 self.sft.nscre_flag = true;
+                self.sft.clusters_dirty = true;
 
                 state.framecontext.frame_fences[frame_idx] = None;
             }
@@ -252,6 +256,7 @@ impl Engine {
 
         if suboptimal {
             self.sft.nscre_flag = true;
+            self.sft.clusters_dirty = true;
         }
     }
 
